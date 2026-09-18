@@ -206,6 +206,7 @@ static void XoaTaiKhoanNhanVien() {
 void ChuCuaHang::hienThiMenu() {
     int luaChon;
     do {
+        clearScreen(); // Dọn màn hình trước khi vẽ lại menu
         cout << "\n===== MENU CHU CUA HANG (" << getID() << ") =====\n";
         cout << "1. Nhap hang hoa moi (1 thiet bi)\n";
         cout << "2. Nhap hang LOAT tu file\n";
@@ -218,29 +219,46 @@ void ChuCuaHang::hienThiMenu() {
 
         switch (luaChon) {
             case 1:
+                clearScreen();
+                cout << "===== NHAP HANG HOA MOI =====\n\n";
                 TaoMatHang();
+                pauseScreen();
                 break;
             case 2:
+                clearScreen();
+                cout << "===== NHAP HANG LOAT TU FILE =====\n";
                 NhapHangLoatTuFile();
+                pauseScreen();
                 break;
             case 3:
+                clearScreen();
                 // true = Quan Ly duoc xem CA Gia Nhap
                 XuatDanhSachKhoHang(true);
+                pauseScreen();
                 break;
             case 4:
+                clearScreen();
+                cout << "===== TAO TAI KHOAN NHAN VIEN =====\n\n";
                 TaoAccount("QL");
+                pauseScreen();
                 break;
             case 5:
+                clearScreen();
                 XemDoanhThuNhanVien();
+                pauseScreen();
                 break;
             case 6:
+                clearScreen();
+                cout << "===== XOA (VO HIEU HOA) TAI KHOAN NHAN VIEN =====\n\n";
                 XoaTaiKhoanNhanVien();
+                pauseScreen();
                 break;
             case 0:
                 cout << "Dang xuat...\n";
                 break;
             default:
                 cout << "Lua chon khong hop le!\n";
+                pauseScreen();
         }
     } while (luaChon != 0);
 }

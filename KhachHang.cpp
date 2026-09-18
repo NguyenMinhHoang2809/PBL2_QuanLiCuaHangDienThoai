@@ -25,6 +25,7 @@ KhachHang::~KhachHang() {}
 void KhachHang::hienThiMenu() {
     int luaChon;
     do {
+        clearScreen(); // Dọn màn hình trước khi vẽ lại menu
         cout << "\n===== MENU KHACH HANG (" << getID() << ") =====\n";
         cout << "1. Xem lich su mua hang\n";
         cout << "0. Dang xuat\n";
@@ -32,6 +33,7 @@ void KhachHang::hienThiMenu() {
 
         switch (luaChon) {
             case 1: {
+                clearScreen();
                 // ----------------------------------------------------------
                 // Xem lich su mua hang bang std::stack (LIFO):
                 // Buoc 1: Duyet toan bo file trong DataHoaDon, file nao thuoc
@@ -78,6 +80,7 @@ void KhachHang::hienThiMenu() {
 
                 if (lichSuHoaDon.empty()) {
                     cout << "Ban chua co hoa don mua hang nao.\n";
+                    pauseScreen();
                     break;
                 }
 
@@ -109,6 +112,7 @@ void KhachHang::hienThiMenu() {
                          << "  |  Tong Tien:" << tongTien << "\n";
                 }
                 cout << "================================================\n";
+                pauseScreen();
                 break;
             }
             case 0:
@@ -116,6 +120,7 @@ void KhachHang::hienThiMenu() {
                 break;
             default:
                 cout << "Lua chon khong hop le!\n";
+                pauseScreen();
         }
     } while (luaChon != 0);
 }

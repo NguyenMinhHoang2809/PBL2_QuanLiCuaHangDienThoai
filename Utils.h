@@ -45,6 +45,20 @@ std::string chuanHoaTenThuMuc(const std::string& ten);
 std::string dinhDangTien(double soTien);
 
 // ------------------------------------------------------------
+// Dieu khien man hinh Console - giup giao dien do doi menu tro nen
+// gon gang, chuyen nghiep thay vi lich su cu chong chat nhau.
+// ------------------------------------------------------------
+
+// Xoa sach man hinh Console (Windows: cls, Linux/macOS: clear).
+void clearScreen();
+
+// Dung lai va cho nguoi dung nhan Enter truoc khi tiep tuc - dung
+// SAU khi in ket qua mot chuc nang, TRUOC khi quay lai menu (menu se
+// goi clearScreen() ngay sau do) - dam bao nguoi dung KIP DOC ket qua
+// truoc khi man hinh bi xoa sach.
+void pauseScreen();
+
+// ------------------------------------------------------------
 // Cac ham boc loi nhap lieu (input validation) - dung chung cho
 // moi vi tri "cin >> bienSo" trong toan he thong, chong treo cung
 // khi nguoi dung go chu vao bien so, va chong gia tri am cho gia SP.

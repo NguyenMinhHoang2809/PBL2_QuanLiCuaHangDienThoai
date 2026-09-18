@@ -8,6 +8,7 @@
 #include <limits>
 #include <vector>
 #include <algorithm>
+#include <cstdlib>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -200,6 +201,40 @@ string dinhDangTien(double soTien) {
     if (laSoAm) ketQua += '-';
     reverse(ketQua.begin(), ketQua.end());
     return ketQua;
+}
+
+// ------------------------------------------------------------
+// clearScreen(): xoa sach noi dung Console. Dung tien xu ly _WIN32
+// de goi dung lenh he dieu hanh - "cls" tren Windows, "clear" tren
+// Linux/macOS.
+// ------------------------------------------------------------
+void clearScreen() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
+// ------------------------------------------------------------
+// pauseScreen(): cho nguoi dung nhan Enter truoc khi menu goi
+// clearScreen() xoa sach ket qua vua in. Diem mau chot: TRUOC do,
+// mot so cho (vd: sau nhapSoNguyen()/nhapSoThucKhongAm()) da tu
+// cin.ignore() san nen buffer dang SACH, con mot so cho khac (vd:
+// sau cin >> chuoi trong Account.cpp) van con ky tu '\n' SOT LAI.
+// Neu goi thang cin.ignore() ma buffer dang sach, ham se BI TREO
+// (doi nguoi dung go them 1 lan nua ma khong hien thi gi) - vi vay
+// PHAI kiem tra cin.rdbuf()->in_avail() (so ky tu dang san sang
+// doc ma KHONG can cho I/O moi) truoc, chi ignore() khi thuc su
+// con rac trong buffer.
+// ------------------------------------------------------------
+void pauseScreen() {
+    cout << "\nNhan Enter de tiep tuc...";
+
+    if (cin.rdbuf()->in_avail() > 0) {
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+    cin.get();
 }
 
 // ------------------------------------------------------------

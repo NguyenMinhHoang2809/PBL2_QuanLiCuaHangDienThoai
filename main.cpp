@@ -38,14 +38,18 @@ int main() {
 
     int luaChon;
     do {
-        cout << "\n========================================\n";
-        cout << "   HOANG CUU BAO MOBILE\n";
+        clearScreen(); // Dọn màn hình trước khi vẽ lại menu - tránh lịch sử chồng chất
+        cout << "\n========================================\n";  
+        cout << "   HOANG CUU BAO MOBILE \n";
         cout << "========================================\n";
         cout << "1. Dang nhap\n";
         cout << "0. Thoat chuong trinh\n";
         luaChon = nhapSoNguyen("Lua chon: ");
 
         if (luaChon == 1) {
+            clearScreen(); // Dọn màn hình ngay khi chọn Đăng nhập, chỉ còn ID/Mật khẩu
+            cout << "===== DANG NHAP =====\n\n";
+
             string id;
             string vaiTro = DangNhap(id);
 
@@ -58,10 +62,15 @@ int main() {
                     delete nguoiDungHienTai;            // Giai phong bo nho - chong memory leak
                     nguoiDungHienTai = nullptr;
                 }
+            } else {
+                // Dang nhap that bai - DangNhap() da tu in loi (vd: "Sai mat
+                // khau!"). Dung lai de nguoi dung KIP DOC thong bao loi nay
+                // truoc khi vong lap quay lai clearScreen() xoa sach no.
+                pauseScreen();
             }
-            // Neu vaiTro rong ("") tuc dang nhap that bai, DangNhap() da tu in loi
         } else if (luaChon != 0) {
             cout << "Lua chon khong hop le!\n";
+            pauseScreen();
         }
 
     } while (luaChon != 0);

@@ -135,6 +135,7 @@ static void LapHoaDonBanHang(const string& idNhanVien) {
 void NhanVienBanHang::hienThiMenu() {
     int luaChon;
     do {
+        clearScreen(); // Dọn màn hình trước khi vẽ lại menu
         cout << "\n===== MENU NHAN VIEN BAN HANG (" << getID() << ") =====\n";
         cout << "1. Tao tai khoan Khach hang\n";
         cout << "2. Lap hoa don ban hang\n";
@@ -145,24 +146,36 @@ void NhanVienBanHang::hienThiMenu() {
 
         switch (luaChon) {
             case 1:
+                clearScreen();
+                cout << "===== TAO TAI KHOAN KHACH HANG =====\n\n";
                 TaoAccount("NV");
+                pauseScreen();
                 break;
             case 2:
+                clearScreen();
+                cout << "===== LAP HOA DON BAN HANG =====\n\n";
                 LapHoaDonBanHang(getID());
+                pauseScreen();
                 break;
             case 3:
+                clearScreen();
                 // false = Nhan Vien KHONG duoc xem Gia Nhap (thong tin
                 // kinh doanh noi bo - biet gia nhap la biet bien loi nhuan)
                 XuatDanhSachKhoHang(false);
+                pauseScreen();
                 break;
             case 4:
+                clearScreen();
+                cout << "===== TU VAN BAN HANG =====\n\n";
                 TuVanBanHang();
+                pauseScreen();
                 break;
             case 0:
                 cout << "Dang xuat...\n";
                 break;
             default:
                 cout << "Lua chon khong hop le!\n";
+                pauseScreen();
         }
     } while (luaChon != 0);
 }
