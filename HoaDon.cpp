@@ -1,4 +1,5 @@
 #include "HoaDon.h"
+#include "TienIch.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -32,9 +33,7 @@ void HoaDon::setDoanhThu(double doanhThu) { this->doanhThu = doanhThu; }
 
 // ------------------------------------------------------------
 // luuFile(): tao thu muc DataHoaDon (neu chua co) va ghi thong tin
-// hoa don ra file DataHoaDon/HD_[maHoaDon].txt theo dinh dang
-// "Nhan: Gia Tri" tren moi dong - de sau nay de dang doc lai / parse
-// (vd: KhachHang.cpp doc dong "Ma Khach Hang:" de loc hoa don).
+// hoa don ra file DataHoaDon/HD_[maHoaDon].txt
 // ------------------------------------------------------------
 void HoaDon::luuFile() {
     string thuMuc = "DataHoaDon";
@@ -44,7 +43,8 @@ void HoaDon::luuFile() {
 
     ofstream file(tenFile);
     if (!file.is_open()) {
-        cout << "Khong the tao file hoa don!\n";
+        cout << "\n";
+        inThongBaoForm("Không thể tạo file hóa đơn!", LOAI_LOI);
         return;
     }
 
@@ -52,39 +52,32 @@ void HoaDon::luuFile() {
     file << "Ma Khach Hang: " << maKhachHang << "\n";
     file << "Ma Nhan Vien: " << maNhanVien << "\n";
     file << "Ngay Lap: " << ngayLap << "\n";
-    // fixed + setprecision(0): tien VND la so nguyen, tranh cout in dang
-    // khoa hoc (vd: 1.55e+07) khi tongTien la so lon (>= 1 trieu).
     file << fixed << setprecision(0);
     file << "Tong Tien: " << tongTien << "\n";
-    // Doanh Thu = tong (Gia Ban - Gia Nhap) cua tung san pham trong hoa
-    // don nay - duoc TINH SAN va LUU LAI ngay tai thoi diem lap hoa don
-    // (khong tinh lai sau), vi Gia Nhap cua san pham co the bi Quan Ly
-    // sua doi sau nay, se lam sai lech doanh thu cua cac hoa don cu neu
-    // tinh lai luc xem bao cao.
     file << "Doanh Thu: " << doanhThu << "\n";
     file.close();
 
-    cout << "Da luu hoa don thanh cong: " << tenFile << "\n";
+    cout << "\n";
+    inThongBaoForm("Đã lưu hóa đơn thành công: " + tenFile, LOAI_THANH_CONG);
 }
 
 // ------------------------------------------------------------
-// inHoaDon(): doc lai chinh file DataHoaDon/HD_[maHoaDon].txt (dua tren
-// maHoaDon dang luu trong doi tuong) va in toan bo noi dung len Console.
+// inHoaDon(): doc lai chinh file DataHoaDon/HD_[maHoaDon].txt va in
+// noi dung trong khung phang can giua man hinh.
 // ------------------------------------------------------------
 void HoaDon::inHoaDon() {
     string tenFile = "DataHoaDon/HD_" + maHoaDon + ".txt";
 
     ifstream file(tenFile);
     if (!file.is_open()) {
-        cout << "Khong tim thay hoa don " << tenFile << "!\n";
+        inThongBaoForm("Không tìm thấy hóa đơn " + tenFile + "!", LOAI_LOI);
         return;
     }
 
-    cout << "\n----- NOI DUNG HOA DON -----\n";
+    veTieuDeForm("NỘI DUNG HÓA ĐƠN", "", 58);
     string dong;
     while (getline(file, dong)) {
-        cout << dong << "\n";
+        inDongTrongKhungForm(dong, 58);
     }
-    cout << "-----------------------------\n";
     file.close();
 }

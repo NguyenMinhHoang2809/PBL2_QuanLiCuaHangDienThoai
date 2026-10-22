@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MATHANG_H
 #define MATHANG_H
 
@@ -5,7 +6,7 @@
 
 // ============================================================
 // Lop co so MatHang - dai dien cho mot mat hang bat ky trong kho.
-// Cac lop dan xuat: DienThoai, Tablet
+// Lop dan xuat: DienThoai
 // ============================================================
 class MatHang {
 protected:
@@ -32,8 +33,9 @@ public:
     void setGiaBan(double giaBan);
 
     // Ham ao - cac lop con co the (nhung khong bat buoc) ghi de lai
-    // de bo sung thong tin rieng (cau hinh, kich thuoc man hinh...)
+    // de bo sung thong tin rieng (cau hinh...)
     virtual void hienThiThongTin();
 };
 
 #endif // MATHANG_H
+

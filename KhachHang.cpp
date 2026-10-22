@@ -1,5 +1,5 @@
 #include "KhachHang.h"
-#include "Utils.h"      // nhapSoNguyen()
+#include "TienIch.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -10,40 +10,36 @@ namespace fs = std::filesystem;
 
 KhachHang::KhachHang() : Nguoi() {}
 
-// Constructor 2 tham so - goi lai constructor cua lop cha Nguoi(id, mk)
 KhachHang::KhachHang(string id, string mk) : Nguoi(id, mk) {}
 
 KhachHang::~KhachHang() {}
 
-// ============================================================
-// KhachHang CHI co quyen XEM LAI lich su mua hang cua chinh minh.
-// Viec lap hoa don (mua/ban) la nghiep vu THUOC VE Nhan Vien - moi
-// hoa don trong he thong deu do 1 NhanVienBanHang cu the tao ra
-// (xem NhanVienBanHang::LapHoaDonBanHang), Khach hang khong tu
-// checkout duoc.
-// ============================================================
+static string canTraiUTF8(const string& s, int rongCot) {
+    int hienThi = doRongHienThi(s);
+    if (hienThi >= rongCot) return s;
+    return s + string(rongCot - hienThi, ' ');
+}
+
+static string catKhoangTrangDau(const string& s) {
+    size_t vt = s.find_first_not_of(" \t");
+    return (vt == string::npos) ? "" : s.substr(vt);
+}
+
 void KhachHang::hienThiMenu() {
     int luaChon;
     do {
-        clearScreen(); // Dọn màn hình trước khi vẽ lại menu
-        cout << "\n===== MENU KHACH HANG (" << getID() << ") =====\n";
-        cout << "1. Xem lich su mua hang\n";
-        cout << "0. Dang xuat\n";
-        luaChon = nhapSoNguyen("Lua chon: ");
+        const vector<string> cacMuc = { "Xem lịch sử mua hàng", "Đăng xuất" };
+        int chiSo = chonMenu("MENU KHÁCH HÀNG (" + getID() + ")", cacMuc);
+        luaChon = (chiSo == static_cast<int>(cacMuc.size()) - 1) ? 0 : chiSo + 1;
 
         switch (luaChon) {
             case 1: {
                 clearScreen();
-                // ----------------------------------------------------------
-                // Xem lich su mua hang bang std::stack (LIFO):
-                // Buoc 1: Duyet toan bo file trong DataHoaDon, file nao thuoc
-                //         ve khach hang hien tai (dong "Ma Khach Hang: ID")
-                //         thi push() duong dan file do vao stack.
-                // Buoc 2: pop() lan luot ra khoi stack -> vi push theo thu tu
-                //         duyet thu muc (thuong tang dan theo thoi gian tao),
-                //         nen pop se cho ra hoa don duoc them SAU CUNG truoc
-                //         -> dung nguyen tac LIFO (moi nhat hien len dau).
-                // ----------------------------------------------------------
+                int rongBang = 72;
+                veTieuDeForm("LỊCH SỬ MUA HÀNG",
+                             "Khách hàng: " + getID() + " (Hiển thị mới nhất trước - LIFO)",
+                             rongBang);
+
                 string thuMucHoaDon = "DataHoaDon";
                 stack<string> lichSuHoaDon;
 
@@ -58,69 +54,80 @@ void KhachHang::hienThiMenu() {
                         bool thuocVeKhachNay = false;
                         string dong;
                         while (getline(fileDoc, dong)) {
-                            // Tim dong dang: "Ma Khach Hang: KH_xxx"
                             if (dong.rfind("Ma Khach Hang:", 0) == 0) {
-                                string maKH = dong.substr(dong.find(":") + 1);
-                                size_t viTriDau = maKH.find_first_not_of(" \t");
-                                if (viTriDau != string::npos) maKH = maKH.substr(viTriDau);
-
+                                string maKH = catKhoangTrangDau(dong.substr(dong.find(":") + 1));
                                 if (maKH == getID()) {
                                     thuocVeKhachNay = true;
                                 }
-                                break; // dong nay chi xuat hien 1 lan trong file
+                                break;
                             }
                         }
                         fileDoc.close();
 
                         if (thuocVeKhachNay) {
-                            lichSuHoaDon.push(duongDanFile); // PUSH vao Stack
+                            lichSuHoaDon.push(duongDanFile);
                         }
                     }
                 }
 
                 if (lichSuHoaDon.empty()) {
-                    cout << "Ban chua co hoa don mua hang nao.\n";
+                    inThongBaoForm("Bạn chưa có hóa đơn mua hàng nào.", LOAI_GHI_CHU);
                     pauseScreen();
                     break;
                 }
 
-                cout << "\n===== LICH SU MUA HANG (moi nhat - LIFO) =====\n";
+                int leTrai = tinhLeTraiCanGiua(rongBang);
+                string khoangLe(leTrai, ' ');
+
+                string tieuDeCot = "  " + canTraiUTF8("Mã Hóa đơn", 16)
+                                 + canTraiUTF8("Nhân viên bán", 18)
+                                 + canTraiUTF8("Ngày lập", 16)
+                                 + canTraiUTF8("Tổng tiền (VNĐ)", 20);
+                cout << khoangLe << "\033[48;5;236m\033[93;1m" << canTraiUTF8(tieuDeCot, rongBang) << "\033[0m\n";
+
+                int stt = 0;
                 while (!lichSuHoaDon.empty()) {
                     string duongDanFile = lichSuHoaDon.top();
-                    lichSuHoaDon.pop(); // POP ra khoi Stack
+                    lichSuHoaDon.pop();
 
                     ifstream fileDoc(duongDanFile);
                     if (!fileDoc.is_open()) continue;
 
-                    // Neu hoa don la du lieu cu (tao truoc khi co truong
-                    // "Ma Nhan Vien") thi se khong tim thay dong nay, gia
-                    // tri mac dinh "(khong ro)" duoc dung de tranh hien
-                    // thi rong hoac gay hieu lam.
-                    string dong, maHD = "(khong ro)", maNV = "(khong ro)", tongTien = "(khong ro)";
+                    string dong, maHD = "(không rõ)", maNV = "(không rõ)", ngayLap = "(không rõ)", tongTienStr = "0";
                     while (getline(fileDoc, dong)) {
                         if (dong.rfind("Ma Hoa Don:", 0) == 0) {
-                            maHD = dong.substr(dong.find(":") + 1);
+                            maHD = catKhoangTrangDau(dong.substr(dong.find(":") + 1));
                         } else if (dong.rfind("Ma Nhan Vien:", 0) == 0) {
-                            maNV = dong.substr(dong.find(":") + 1);
+                            maNV = catKhoangTrangDau(dong.substr(dong.find(":") + 1));
+                        } else if (dong.rfind("Ngay Lap:", 0) == 0) {
+                            ngayLap = catKhoangTrangDau(dong.substr(dong.find(":") + 1));
                         } else if (dong.rfind("Tong Tien:", 0) == 0) {
-                            tongTien = dong.substr(dong.find(":") + 1);
+                            tongTienStr = catKhoangTrangDau(dong.substr(dong.find(":") + 1));
                         }
                     }
                     fileDoc.close();
 
-                    cout << "- Ma HD:" << maHD << "  |  Nhan Vien Ban:" << maNV
-                         << "  |  Tong Tien:" << tongTien << "\n";
+                    string hienThiTien = tongTienStr;
+                    try {
+                        hienThiTien = dinhDangTien(stod(tongTienStr));
+                    } catch (...) {}
+
+                    stt++;
+                    const char* mauNen = (stt % 2 == 1) ? "\033[48;5;235m\033[97m" : "\033[48;5;237m\033[97m";
+                    string dongIn = "  " + canTraiUTF8(maHD, 16)
+                                  + canTraiUTF8(maNV, 18)
+                                  + canTraiUTF8(ngayLap, 16)
+                                  + canTraiUTF8(hienThiTien, 20);
+                    cout << khoangLe << mauNen << canTraiUTF8(dongIn, rongBang) << "\033[0m\n";
                 }
-                cout << "================================================\n";
+
                 pauseScreen();
                 break;
             }
             case 0:
-                cout << "Dang xuat...\n";
                 break;
             default:
-                cout << "Lua chon khong hop le!\n";
-                pauseScreen();
+                break;
         }
     } while (luaChon != 0);
 }

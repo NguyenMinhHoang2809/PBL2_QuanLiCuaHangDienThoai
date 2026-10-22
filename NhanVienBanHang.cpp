@@ -1,8 +1,8 @@
 #include "NhanVienBanHang.h"
-#include "Account.h"        // TaoAccount()
-#include "HoaDon.h"         // HoaDon, luuFile()
-#include "Utils.h"          // layNgayHeThong(), timMatHangTheoSoSeri()
-#include "KhoHang.h"        // XuatDanhSachKhoHang(), TuVanBanHang()
+#include "Account.h"
+#include "HoaDon.h"
+#include "TienIch.h"
+#include "KhoHang.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -14,72 +14,62 @@ namespace fs = std::filesystem;
 
 NhanVienBanHang::NhanVienBanHang() : Nguoi() {}
 
-// Constructor 2 tham so - goi lai constructor cua lop cha Nguoi(id, mk)
 NhanVienBanHang::NhanVienBanHang(string id, string mk) : Nguoi(id, mk) {}
 
 NhanVienBanHang::~NhanVienBanHang() {}
 
 // ------------------------------------------------------------
-// Chuc nang: Lap hoa don ban hang
+// Chuc nang: Lap hoa don ban hang voi giao dien Form phang can giua
 // ------------------------------------------------------------
 static void LapHoaDonBanHang(const string& idNhanVien) {
-    // Lap lai cho den khi nhap duoc Ma Hoa Don CHUA TON TAI trong
-    // DataHoaDon/ - tranh truong hop go trung ma hoa don cu, khien
-    // ofstream trong HoaDon::luuFile() GHI DE va XOA MAT hoa don cu
-    // ma khong he co canh bao nao.
-    string maHoaDon;
-    while (true) {
-        cout << "Nhap Ma Hoa Don: ";
-        cin >> maHoaDon;
+    clearScreen();
+    veTieuDeForm("LẬP HÓA ĐƠN BÁN HÀNG",
+                 "(Nhập thông tin khách hàng và Số Seri từng sản phẩm)",
+                 62);
 
+    string maHoaDon;
+    string loi = "";
+    while (true) {
+        maHoaDon = nhapChuoiForm("Nhập Mã hóa đơn", loi, false, 62, 24);
         if (fs::exists("DataHoaDon/HD_" + maHoaDon + ".txt")) {
-            cout << "Ma Hoa Don nay da ton tai! Vui long nhap ma khac.\n";
+            xoaDongTruocForm(1);
+            loi = "Mã hóa đơn này đã tồn tại! Vui lòng nhập mã khác.";
             continue;
         }
         break;
     }
 
     string maKhachHang;
-    // Lap lai cho den khi nhap duoc Ma Khach Hang CO THAT SU TON TAI
-    // trong DataKhachHang/ - tranh truong hop go nham/go bua ID khach
-    // hang, khien hoa don duoc lap cho mot khach hang khong co thuc,
-    // sau nay khach hang do khong the dang nhap de xem lai hoa don nay.
+    loi = "";
     while (true) {
-        cout << "Nhap Ma Khach Hang: ";
-        cin >> maKhachHang;
-
+        maKhachHang = nhapChuoiForm("Nhập Mã khách hàng", loi, false, 62, 24);
         if (!fs::exists("DataKhachHang/" + maKhachHang + ".txt")) {
-            cout << "Khong ton tai thong tin khach hang nay! Vui long nhap lai.\n";
+            xoaDongTruocForm(1);
+            loi = "Không tồn tại thông tin khách hàng này! Vui lòng nhập lại.";
             continue;
         }
         break;
     }
 
     double tongTien = 0;
-    // Doanh Thu (theo dung nghia ban dua ra: Gia Ban - Gia Nhap cong don
-    // tung san pham) - ve ban chat day la LOI NHUAN GOP, khac voi doanh
-    // thu ke toan chuan (= tongTien). Ten bien/truong van dat la "doanh
-    // thu" de khop thuat ngu ban su dung trong yeu cau.
     double tongDoanhThu = 0;
     string soSeri;
-
-    // Luu lai tap hop So Seri DA THEM vao hoa don nay - moi may dien thoai
-    // that te chi co DUY NHAT 1 so seri, khong the ban 2 lan cung 1 may
-    // trong CUNG 1 hoa don. set<string> giup kiem tra "da ton tai chua"
-    // voi do phuc tap O(log n), nhanh hon duyet vector tuyen tinh.
     set<string> daThemSoSeri;
 
-    cout << "\n--- Nhap So Seri mat hang (nhap 0 de ket thuc va chot don) ---\n";
+    cout << "\n";
+    inDongTrongKhungForm("NHẬP SỐ SERI MẶT HÀNG (Nhập 0 để kết thúc và chốt đơn)",
+                         62, "\033[48;5;236m\033[93;1m");
+
+    string loiSeri = "";
     do {
-        cout << "So Seri: ";
-        cin >> soSeri;
+        soSeri = nhapChuoiForm("Số Seri", loiSeri, false, 62, 24);
+        loiSeri = "";
 
         if (soSeri == "0") break;
 
-        // Kiem tra trung lap TRUOC KHI tim trong DataMatHang - tranh cong
-        // don gia ban 2 lan cho cung 1 san pham vao tongTien.
         if (daThemSoSeri.count(soSeri) > 0) {
-            cout << "So seri nay da duoc them vao hoa don roi, khong the them lai!\n";
+            xoaDongTruocForm(1);
+            loiSeri = "Số seri này đã được thêm vào hóa đơn rồi!";
             continue;
         }
 
@@ -89,32 +79,32 @@ static void LapHoaDonBanHang(const string& idNhanVien) {
 
         if (timMatHangTheoSoSeri(soSeri, tenMatHang, giaNhap, giaBan, daBanRoi)) {
             if (daBanRoi) {
-                cout << "San pham nay (Seri: " << soSeri << ") da duoc ban roi, khong the ban lai!\n";
+                xoaDongTruocForm(1);
+                loiSeri = "Sản phẩm (Seri: " + soSeri + ") đã được bán rồi!";
                 continue;
             }
 
             tongTien += giaBan;
             tongDoanhThu += (giaBan - giaNhap);
-            daThemSoSeri.insert(soSeri); // Danh dau seri nay DA duoc them
-            cout << "Da them " << tenMatHang << " - Gia: "
-                 << fixed << setprecision(0) << giaBan
-                 << " (Loi nhuan: " << (giaBan - giaNhap) << ")\n";
+            daThemSoSeri.insert(soSeri);
+
+            inDongTrongKhungForm("+ Đã thêm: " + tenMatHang + " | Giá: " + dinhDangTien(giaBan) + " VNĐ",
+                                 62, "\033[48;5;236m\033[92m");
         } else {
-            cout << "Khong ton tai so seri nay!\n";
+            xoaDongTruocForm(1);
+            loiSeri = "Không tồn tại số seri '" + soSeri + "' trong kho!";
         }
 
     } while (soSeri != "0");
 
     if (tongTien <= 0) {
-        cout << "Hoa don chua co mat hang nao, huy lap hoa don!\n";
+        cout << "\n";
+        inThongBaoForm("Hóa đơn chưa có mặt hàng nào, hủy lập hóa đơn!", LOAI_LOI);
         return;
     }
 
-    // Cho phep nhan vien tu nhap ngay lap, neu de trong se lay ngay he thong
-    cin.ignore(); // bo qua ky tu '\n' con sot lai sau lan cin >> soSeri cuoi cung
-    string ngayLap;
-    cout << "Nhap Ngay Lap (dd-mm-yyyy, de trong de lay ngay he thong): ";
-    getline(cin, ngayLap);
+    cout << "\n";
+    string ngayLap = nhapChuoiForm("Ngày lập (trống = hôm nay)", "", true, 62, 24);
     if (ngayLap.empty()) {
         ngayLap = layNgayHeThong();
     }
@@ -122,60 +112,48 @@ static void LapHoaDonBanHang(const string& idNhanVien) {
     HoaDon hoaDonMoi(maHoaDon, maKhachHang, idNhanVien, ngayLap, tongTien, tongDoanhThu);
     hoaDonMoi.luuFile();
 
-    // Chi sau khi hoa don da LUU FILE THANH CONG moi danh dau cac san
-    // pham la "Da Ban" - tranh truong hop luuFile() that bai (vd: khong
-    // mo duoc file) ma san pham van bi danh dau ban nham.
     for (const string& seri : daThemSoSeri) {
         danhDauMatHangDaBan(seri, maKhachHang);
     }
 
-    cout << "Tong tien hoa don: " << fixed << setprecision(0) << tongTien << "\n";
+    cout << "\n";
+    inTruongDaNhapForm("Tổng tiền hóa đơn", dinhDangTien(tongTien) + " VNĐ", 62, 24);
 }
 
 void NhanVienBanHang::hienThiMenu() {
     int luaChon;
     do {
-        clearScreen(); // Dọn màn hình trước khi vẽ lại menu
-        cout << "\n===== MENU NHAN VIEN BAN HANG (" << getID() << ") =====\n";
-        cout << "1. Tao tai khoan Khach hang\n";
-        cout << "2. Lap hoa don ban hang\n";
-        cout << "3. Xuat danh sach kho hang\n";
-        cout << "4. Tu van ban hang (theo ngan sach khach)\n";
-        cout << "0. Dang xuat\n";
-        luaChon = nhapSoNguyen("Lua chon: ");
+        const vector<string> cacMuc = {
+            "Tạo tài khoản Khách hàng",
+            "Lập hóa đơn bán hàng",
+            "Xuất danh sách kho hàng",
+            "Tư vấn bán hàng (theo ngân sách khách)",
+            "Đăng xuất"
+        };
+        int chiSo = chonMenu("MENU NHÂN VIÊN BÁN HÀNG (" + getID() + ")", cacMuc);
+        luaChon = (chiSo == static_cast<int>(cacMuc.size()) - 1) ? 0 : chiSo + 1;
 
         switch (luaChon) {
             case 1:
-                clearScreen();
-                cout << "===== TAO TAI KHOAN KHACH HANG =====\n\n";
                 TaoAccount("NV");
                 pauseScreen();
                 break;
             case 2:
-                clearScreen();
-                cout << "===== LAP HOA DON BAN HANG =====\n\n";
                 LapHoaDonBanHang(getID());
                 pauseScreen();
                 break;
             case 3:
-                clearScreen();
-                // false = Nhan Vien KHONG duoc xem Gia Nhap (thong tin
-                // kinh doanh noi bo - biet gia nhap la biet bien loi nhuan)
                 XuatDanhSachKhoHang(false);
                 pauseScreen();
                 break;
             case 4:
-                clearScreen();
-                cout << "===== TU VAN BAN HANG =====\n\n";
                 TuVanBanHang();
                 pauseScreen();
                 break;
             case 0:
-                cout << "Dang xuat...\n";
                 break;
             default:
-                cout << "Lua chon khong hop le!\n";
-                pauseScreen();
+                break;
         }
     } while (luaChon != 0);
 }

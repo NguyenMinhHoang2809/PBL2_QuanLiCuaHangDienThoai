@@ -2,10 +2,7 @@
 #define DIENTHOAI_H
 
 #include "MatHang.h"
-
-// ============================================================
 // Lop DienThoai - ke thua MatHang, bo sung thuoc tinh cauHinh
-// ============================================================
 class DienThoai : public MatHang {
 private:
     std::string cauHinh;

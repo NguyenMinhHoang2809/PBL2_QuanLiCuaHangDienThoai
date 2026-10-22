@@ -20,7 +20,6 @@ public:
     HoaDon();
     HoaDon(std::string maHoaDon, std::string maKhachHang, std::string maNhanVien,
            std::string ngayLap, double tongTien, double doanhThu);
-
     // ----- Getter -----
     std::string getMaHoaDon() const;
     std::string getMaKhachHang() const;
@@ -28,7 +27,6 @@ public:
     std::string getNgayLap() const;
     double getTongTien() const;
     double getDoanhThu() const;
-
     // ----- Setter -----
     void setMaHoaDon(std::string maHoaDon);
     void setMaKhachHang(std::string maKhachHang);
@@ -36,11 +34,9 @@ public:
     void setNgayLap(std::string ngayLap);
     void setTongTien(double tongTien);
     void setDoanhThu(double doanhThu);
-
     // Tao thu muc DataHoaDon (neu chua co) va xuat thong tin hoa don
     // ra file: DataHoaDon/HD_[maHoaDon].txt
     void luuFile();
-
     // Doc noi dung file hoa don (dua theo maHoaDon hien tai) va in len Console
     void inHoaDon();
 };

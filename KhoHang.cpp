@@ -1,5 +1,5 @@
 #include "KhoHang.h"
-#include "Utils.h"      // nhapSoNguyen(), nhapSoThucKhongAm(), dinhDangTien()
+#include "TienIch.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -9,18 +9,24 @@
 using namespace std;
 namespace fs = std::filesystem;
 
+// Can le trai chuoi UTF-8 theo so ky tu HIEN THI thuc te (doRongHienThi)
+// de bang khong bi lech cot khi co tieng Viet co dau.
+static string canTraiUTF8(const string& s, int rongCot) {
+    int hienThi = doRongHienThi(s);
+    if (hienThi >= rongCot) return s;
+    return s + string(rongCot - hienThi, ' ');
+}
+
 // ------------------------------------------------------------
-// docToanBoKhoHang(): duyet DE QUY toan bo DataMatHang (vi moi dong
-// may nam trong 1 thu muc con rieng), doc tung file .txt thanh mot
-// ban ghi ThongTinMatHang. Doc HET vao bo nho 1 lan roi moi sap xep/
-// loc, thay vi doc lai o dia moi lan can - nhanh va don gian hon.
+// docToanBoKhoHang(): duyet DE QUY toan bo DataMatHang, doc tung file
+// .txt thanh mot ban ghi ThongTinMatHang.
 // ------------------------------------------------------------
 vector<ThongTinMatHang> docToanBoKhoHang() {
     vector<ThongTinMatHang> danhSach;
     string thuMucGoc = "DataMatHang";
 
     if (!fs::exists(thuMucGoc) || !fs::is_directory(thuMucGoc)) {
-        return danhSach; // Kho rong -> tra ve vector rong
+        return danhSach;
     }
 
     for (const auto& entry : fs::recursive_directory_iterator(thuMucGoc)) {
@@ -46,17 +52,15 @@ vector<ThongTinMatHang> docToanBoKhoHang() {
                 giaTri = (vt == string::npos) ? "" : giaTri.substr(vt);
             }
 
-            if (dong.rfind("Ten Mat Hang:", 0) == 0)            mh.tenMatHang = giaTri;
-            else if (dong.rfind("So Seri:", 0) == 0)            mh.soSeri = giaTri;
-            else if (dong.rfind("Gia Nhap:", 0) == 0)           giaNhapStr = giaTri;
-            else if (dong.rfind("Gia Ban:", 0) == 0)            giaBanStr = giaTri;
-            else if (dong.rfind("Tinh Trang:", 0) == 0)         mh.daBan = (giaTri == "Da Ban");
+            if (dong.rfind("Ten Mat Hang:", 0) == 0)              mh.tenMatHang = giaTri;
+            else if (dong.rfind("So Seri:", 0) == 0)              mh.soSeri = giaTri;
+            else if (dong.rfind("Gia Nhap:", 0) == 0)             giaNhapStr = giaTri;
+            else if (dong.rfind("Gia Ban:", 0) == 0)              giaBanStr = giaTri;
+            else if (dong.rfind("Tinh Trang:", 0) == 0)           mh.daBan = (giaTri == "Da Ban");
             else if (dong.rfind("Ma Khach Hang Da Mua:", 0) == 0) mh.maKhachHangDaMua = giaTri;
         }
         fileDoc.close();
 
-        // File loi dinh dang gia -> bo qua ban ghi do, khong lam hong
-        // toan bo bang danh sach.
         try {
             if (!giaNhapStr.empty()) mh.giaNhap = stod(giaNhapStr);
             if (!giaBanStr.empty())  mh.giaBan = stod(giaBanStr);
@@ -64,10 +68,8 @@ vector<ThongTinMatHang> docToanBoKhoHang() {
             continue;
         }
 
-        // Ten file (bo duoi .txt) chinh la So Seri - dung lam phuong an
-        // du phong neu trong file thieu dong "So Seri:".
         if (mh.soSeri.empty()) mh.soSeri = entry.path().stem().string();
-        if (mh.tenMatHang.empty()) mh.tenMatHang = "(khong ro)";
+        if (mh.tenMatHang.empty()) mh.tenMatHang = "(không rõ)";
 
         danhSach.push_back(mh);
     }
@@ -76,28 +78,31 @@ vector<ThongTinMatHang> docToanBoKhoHang() {
 }
 
 // ------------------------------------------------------------
-// XuatDanhSachKhoHang(): in bang danh sach kho, co menu chon kieu
-// sap xep. Cot "Gia Nhap" CHI hien khi hienGiaNhap == true (Quan Ly) -
-// Nhan Vien khong duoc thay gia nhap vi day la thong tin kinh doanh
-// noi bo (biet gia nhap la biet bien loi nhuan cua cua hang).
+// XuatDanhSachKhoHang(): in bang danh sach kho can giua man hinh, co
+// menu chon kieu sap xep.
 // ------------------------------------------------------------
 void XuatDanhSachKhoHang(bool hienGiaNhap) {
     vector<ThongTinMatHang> danhSach = docToanBoKhoHang();
 
     if (danhSach.empty()) {
-        cout << "Kho hang hien dang rong!\n";
+        clearScreen();
+        veTieuDeForm("DANH SÁCH KHO HÀNG");
+        inThongBaoForm("Kho hàng hiện đang rỗng!", LOAI_GHI_CHU);
         return;
     }
 
-    cout << "\nSap xep danh sach theo:\n";
-    cout << "1. Gia ban TU CAO den THAP\n";
-    cout << "2. Gia ban TU THAP den CAO\n";
-    cout << "3. Ten mat hang (A-Z)\n";
-    cout << "4. Chi xem hang CHUA BAN (gia tu thap den cao)\n";
-    int kieuSapXep = nhapSoNguyen("Lua chon: ");
+    const vector<string> cacMuc = {
+        "Giá bán TỪ CAO đến THẤP",
+        "Giá bán TỪ THẤP đến CAO",
+        "Tên mặt hàng (A-Z)",
+        "Chỉ xem hàng CHƯA BÁN (giá từ thấp đến cao)",
+        "Quay lại"
+    };
+    int chiSo = chonMenu("SẮP XẾP DANH SÁCH KHO HÀNG THEO", cacMuc);
+    if (chiSo == static_cast<int>(cacMuc.size()) - 1) return;
+    int kieuSapXep = chiSo + 1;
 
     if (kieuSapXep == 4) {
-        // Loc bo cac may DA BAN ra khoi danh sach truoc khi sap xep
         vector<ThongTinMatHang> conHang;
         for (const auto& mh : danhSach) {
             if (!mh.daBan) conHang.push_back(mh);
@@ -105,7 +110,9 @@ void XuatDanhSachKhoHang(bool hienGiaNhap) {
         danhSach = conHang;
 
         if (danhSach.empty()) {
-            cout << "Khong con mat hang nao chua ban trong kho!\n";
+            clearScreen();
+            veTieuDeForm("DANH SÁCH KHO HÀNG");
+            inThongBaoForm("Không còn mặt hàng nào chưa bán trong kho!", LOAI_GHI_CHU);
             return;
         }
     }
@@ -133,82 +140,86 @@ void XuatDanhSachKhoHang(bool hienGiaNhap) {
             break;
     }
 
-    cout << "\n================ DANH SACH KHO HANG ================\n";
+    clearScreen();
+    int rongBang = hienGiaNhap ? 94 : 76;
+    veTieuDeForm("DANH SÁCH KHO HÀNG",
+                 "Tổng số lượng: " + to_string(danhSach.size()) + " thiết bị",
+                 rongBang);
+
+    int leTrai = tinhLeTraiCanGiua(rongBang);
+    string khoangLe(leTrai, ' ');
 
     if (hienGiaNhap) {
-        // ----- Ban danh cho QUAN LY: co ca Gia Nhap -----
-        cout << "-------------------------------------------------------------------------------------------------\n";
-        cout << "| " << left << setw(4) << "STT"
-             << "| " << setw(22) << "Ten mat hang"
-             << "| " << setw(14) << "So Seri"
-             << "| " << setw(16) << "Gia nhap (VND)"
-             << "| " << setw(16) << "Gia ban (VND)"
-             << "| " << setw(10) << "Tinh trang" << " |\n";
-        cout << "-------------------------------------------------------------------------------------------------\n";
+        string tieuDeCot = "  " + canTraiUTF8("STT", 5)
+                         + canTraiUTF8("Tên mặt hàng", 24)
+                         + canTraiUTF8("Số Seri", 15)
+                         + canTraiUTF8("Giá nhập (VNĐ)", 18)
+                         + canTraiUTF8("Giá bán (VNĐ)", 18)
+                         + canTraiUTF8("Tình trạng", 12);
+        cout << khoangLe << "\033[48;5;236m\033[93;1m" << canTraiUTF8(tieuDeCot, rongBang) << "\033[0m\n";
 
         int stt = 0;
         for (const auto& mh : danhSach) {
             stt++;
-            cout << "| " << left << setw(4) << stt
-                 << "| " << setw(22) << mh.tenMatHang
-                 << "| " << setw(14) << mh.soSeri
-                 << "| " << setw(16) << dinhDangTien(mh.giaNhap)
-                 << "| " << setw(16) << dinhDangTien(mh.giaBan)
-                 << "| " << setw(10) << (mh.daBan ? "Da Ban" : "Chua Ban") << " |\n";
+            const char* mauNen = (stt % 2 == 1) ? "\033[48;5;235m\033[97m" : "\033[48;5;237m\033[97m";
+            string dong = "  " + canTraiUTF8(to_string(stt), 5)
+                        + canTraiUTF8(mh.tenMatHang, 24)
+                        + canTraiUTF8(mh.soSeri, 15)
+                        + canTraiUTF8(dinhDangTien(mh.giaNhap), 18)
+                        + canTraiUTF8(dinhDangTien(mh.giaBan), 18)
+                        + canTraiUTF8(mh.daBan ? "Đã bán" : "Chưa bán", 12);
+            cout << khoangLe << mauNen << canTraiUTF8(dong, rongBang) << "\033[0m\n";
         }
-        cout << "-------------------------------------------------------------------------------------------------\n";
     } else {
-        // ----- Ban danh cho NHAN VIEN: KHONG co cot Gia Nhap -----
-        cout << "--------------------------------------------------------------------------------\n";
-        cout << "| " << left << setw(4) << "STT"
-             << "| " << setw(24) << "Ten mat hang"
-             << "| " << setw(16) << "So Seri"
-             << "| " << setw(16) << "Gia ban (VND)"
-             << "| " << setw(10) << "Tinh trang" << " |\n";
-        cout << "--------------------------------------------------------------------------------\n";
+        string tieuDeCot = "  " + canTraiUTF8("STT", 5)
+                         + canTraiUTF8("Tên mặt hàng", 24)
+                         + canTraiUTF8("Số Seri", 15)
+                         + canTraiUTF8("Giá bán (VNĐ)", 18)
+                         + canTraiUTF8("Tình trạng", 12);
+        cout << khoangLe << "\033[48;5;236m\033[93;1m" << canTraiUTF8(tieuDeCot, rongBang) << "\033[0m\n";
 
         int stt = 0;
         for (const auto& mh : danhSach) {
             stt++;
-            cout << "| " << left << setw(4) << stt
-                 << "| " << setw(24) << mh.tenMatHang
-                 << "| " << setw(16) << mh.soSeri
-                 << "| " << setw(16) << dinhDangTien(mh.giaBan)
-                 << "| " << setw(10) << (mh.daBan ? "Da Ban" : "Chua Ban") << " |\n";
+            const char* mauNen = (stt % 2 == 1) ? "\033[48;5;235m\033[97m" : "\033[48;5;237m\033[97m";
+            string dong = "  " + canTraiUTF8(to_string(stt), 5)
+                        + canTraiUTF8(mh.tenMatHang, 24)
+                        + canTraiUTF8(mh.soSeri, 15)
+                        + canTraiUTF8(dinhDangTien(mh.giaBan), 18)
+                        + canTraiUTF8(mh.daBan ? "Đã bán" : "Chưa bán", 12);
+            cout << khoangLe << mauNen << canTraiUTF8(dong, rongBang) << "\033[0m\n";
         }
-        cout << "--------------------------------------------------------------------------------\n";
     }
-
-    cout << "Tong so luong: " << danhSach.size() << " thiet bi.\n";
 }
 
 // ------------------------------------------------------------
-// TuVanBanHang(): nhap ngan sach cua khach, loc ra cac may CHUA BAN
-// co Gia Ban <= ngan sach, sap xep tang dan roi goi y 3 muc:
-//   - Toi uu chi phi : may re nhat (tiet kiem nhat)
-//   - Trung binh     : may o giua danh sach (can bang gia/chat luong)
-//   - Tot nhat       : may dat nhat van nam trong ngan sach
-// Neu it lua chon hon 3 may thi chi hien cac muc co du lieu.
+// TuVanBanHang(): nhap ngan sach cua khach trong khung Form phang can
+// giua, loc ra cac may CHUA BAN co Gia Ban <= ngan sach va goi y 3 muc.
 // ------------------------------------------------------------
 void TuVanBanHang() {
+    clearScreen();
     vector<ThongTinMatHang> danhSach = docToanBoKhoHang();
 
+    veTieuDeForm("TƯ VẤN BÁN HÀNG",
+                 "(Gợi ý thiết bị chưa bán phù hợp với ngân sách khách hàng)",
+                 58);
+
     if (danhSach.empty()) {
-        cout << "Kho hang hien dang rong, khong the tu van!\n";
+        inThongBaoForm("Kho hàng hiện đang rỗng, không thể tư vấn!", LOAI_LOI);
         return;
     }
 
-    double nganSach = nhapSoThucKhongAm("Nhap so tien khach hang hien co (VND): ");
+    double nganSach = nhapSoThucKhongAm("Ngân sách khách có (VNĐ)");
 
-    // Chi tu van may CHUA BAN - may da ban khong the ban lai cho khach khac
     vector<ThongTinMatHang> phuHop;
     for (const auto& mh : danhSach) {
         if (!mh.daBan && mh.giaBan <= nganSach) phuHop.push_back(mh);
     }
 
     if (phuHop.empty()) {
-        cout << "\nRat tiec, khong co san pham nao phu hop voi ngan sach "
-             << dinhDangTien(nganSach) << " VND!\n";
+        cout << "\n";
+        inThongBaoForm("Rất tiếc, không có sản phẩm nào phù hợp với ngân sách "
+                       + dinhDangTien(nganSach) + " VNĐ!", LOAI_LOI);
         return;
     }
 
@@ -217,46 +228,43 @@ void TuVanBanHang() {
              return a.giaBan < b.giaBan;
          });
 
-    cout << "\n================ KET QUA TU VAN BAN HANG ================\n";
-    cout << "Ngan sach: " << dinhDangTien(nganSach) << " VND\n";
-    cout << "So may phu hop trong kho: " << phuHop.size() << "\n";
-    cout << "-------------------------------------------------------------------------------------------------\n";
-    cout << "| " << left << setw(18) << "Tieu chi"
-         << "| " << setw(22) << "Ten mat hang"
-         << "| " << setw(14) << "So Seri"
-         << "| " << setw(16) << "Gia ban (VND)"
-         << "| " << setw(16) << "Tiet kiem (VND)" << " |\n";
-    cout << "-------------------------------------------------------------------------------------------------\n";
+    cout << "\n";
+    int rongBang = 94;
+    int leTrai = tinhLeTraiCanGiua(rongBang);
+    string khoangLe(leTrai, ' ');
+
+    inDongCanGiua("Ngân sách: " + dinhDangTien(nganSach) + " VNĐ  |  Số máy phù hợp: "
+                  + to_string(phuHop.size()), "\033[92;1m");
+    cout << "\n";
+
+    string tieuDeCot = "  " + canTraiUTF8("Tiêu chí", 20)
+                     + canTraiUTF8("Tên mặt hàng", 24)
+                     + canTraiUTF8("Số Seri", 14)
+                     + canTraiUTF8("Giá bán (VNĐ)", 17)
+                     + canTraiUTF8("Tiết kiệm (VNĐ)", 17);
+    cout << khoangLe << "\033[48;5;236m\033[93;1m" << canTraiUTF8(tieuDeCot, rongBang) << "\033[0m\n";
+
+    auto inDongGoiY = [&](const string& tieuChi, const ThongTinMatHang& mh, bool dongLe) {
+        const char* mauNen = dongLe ? "\033[48;5;235m\033[97m" : "\033[48;5;237m\033[97m";
+        string dong = "  " + canTraiUTF8(tieuChi, 20)
+                    + canTraiUTF8(mh.tenMatHang, 24)
+                    + canTraiUTF8(mh.soSeri, 14)
+                    + canTraiUTF8(dinhDangTien(mh.giaBan), 17)
+                    + canTraiUTF8(dinhDangTien(nganSach - mh.giaBan), 17);
+        cout << khoangLe << mauNen << canTraiUTF8(dong, rongBang) << "\033[0m\n";
+    };
 
     // 1. Toi uu chi phi - may re nhat
-    const ThongTinMatHang& reNhat = phuHop.front();
-    cout << "| " << left << setw(18) << "1. Toi uu chi phi"
-         << "| " << setw(22) << reNhat.tenMatHang
-         << "| " << setw(14) << reNhat.soSeri
-         << "| " << setw(16) << dinhDangTien(reNhat.giaBan)
-         << "| " << setw(16) << dinhDangTien(nganSach - reNhat.giaBan) << " |\n";
+    inDongGoiY("1. Tối ưu chi phí", phuHop.front(), true);
 
-    // 2. Trung binh - chi hien khi co tu 3 may tro len, neu khong muc
-    // nay se trung lap voi muc "re nhat" hoac "tot nhat".
+    // 2. Trung binh - chi hien khi co tu 3 may tro len
     if (phuHop.size() >= 3) {
-        const ThongTinMatHang& trungBinh = phuHop[phuHop.size() / 2];
-        cout << "| " << left << setw(18) << "2. Trung binh"
-             << "| " << setw(22) << trungBinh.tenMatHang
-             << "| " << setw(14) << trungBinh.soSeri
-             << "| " << setw(16) << dinhDangTien(trungBinh.giaBan)
-             << "| " << setw(16) << dinhDangTien(nganSach - trungBinh.giaBan) << " |\n";
+        inDongGoiY("2. Trung bình", phuHop[phuHop.size() / 2], false);
     }
 
     // 3. Tot nhat - may dat nhat van trong ngan sach
     if (phuHop.size() >= 2) {
-        const ThongTinMatHang& totNhat = phuHop.back();
-        string tenMuc = (phuHop.size() == 2) ? "2. Tot nhat" : "3. Tot nhat";
-        cout << "| " << left << setw(18) << tenMuc
-             << "| " << setw(22) << totNhat.tenMatHang
-             << "| " << setw(14) << totNhat.soSeri
-             << "| " << setw(16) << dinhDangTien(totNhat.giaBan)
-             << "| " << setw(16) << dinhDangTien(nganSach - totNhat.giaBan) << " |\n";
+        string tenMuc = (phuHop.size() == 2) ? "2. Tốt nhất" : "3. Tốt nhất";
+        inDongGoiY(tenMuc, phuHop.back(), phuHop.size() == 2 ? false : true);
     }
-
-    cout << "-------------------------------------------------------------------------------------------------\n";
 }
