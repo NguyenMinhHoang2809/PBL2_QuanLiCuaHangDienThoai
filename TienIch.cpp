@@ -249,6 +249,290 @@ static const char* const ANSI_NUT_THUONG   = "\033[48;5;242m\033[97m";
 static const char* const ANSI_NUT_SANG     = "\033[48;5;248m\033[97;1m";
 static const char* const ANSI_RESET_MAU    = "\033[0m";
 
+// ============================================================
+// TU DONG CAI DAT HINH NEN WINDOWS TERMINAL (settings.json)
+// ============================================================
+
+// Bo qua khoang trang va comment (//... hoac /*...*/) trong JSON/JSONC
+static size_t boQuaKhoangTrangVaCommentJson(const string& s, size_t i) {
+    while (i < s.size()) {
+        if (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n') {
+            i++;
+        } else if (s[i] == '/' && i + 1 < s.size() && s[i + 1] == '/') {
+            i += 2;
+            while (i < s.size() && s[i] != '\n') i++;
+        } else if (s[i] == '/' && i + 1 < s.size() && s[i + 1] == '*') {
+            i += 2;
+            while (i + 1 < s.size() && !(s[i] == '*' && s[i + 1] == '/')) i++;
+            if (i + 1 < s.size()) i += 2;
+        } else {
+            break;
+        }
+    }
+    return i;
+}
+
+// Tim vi tri dau '"' dong cua mot chuoi JSON bat dau tai s[viTriMo] == '"'
+static size_t timCuoiChuoiJson(const string& s, size_t viTriMo) {
+    for (size_t i = viTriMo + 1; i < s.size(); ++i) {
+        if (s[i] == '\\') {
+            i++; // Bo qua ky tu duoc escape
+        } else if (s[i] == '"') {
+            return i;
+        }
+    }
+    return string::npos;
+}
+
+// Tim dau '}' dong tuong ung voi dau '{' tai s[viTriMo]
+static size_t timCapNgoacNhonJson(const string& s, size_t viTriMo) {
+    int cap = 0;
+    for (size_t i = viTriMo; i < s.size(); ++i) {
+        if (s[i] == '"') {
+            size_t cuoi = timCuoiChuoiJson(s, i);
+            if (cuoi == string::npos) return string::npos;
+            i = cuoi;
+        } else if (s[i] == '/' && i + 1 < s.size() && (s[i + 1] == '/' || s[i + 1] == '*')) {
+            i = boQuaKhoangTrangVaCommentJson(s, i) - 1;
+        } else if (s[i] == '{') {
+            cap++;
+        } else if (s[i] == '}') {
+            cap--;
+            if (cap == 0) return i;
+        }
+    }
+    return string::npos;
+}
+
+// Tim mot khoa (key) o cap 1 ben trong mot doi tuong JSON { ... }
+static bool timKhoaJsonCap1(const string& khoiObj, const string& tenKhoa,
+                            size_t& viTriKhoaOut, size_t& viTriHaiChamOut) {
+    int capNgoacNhon = 0;
+    int capNgoacVuong = 0;
+
+    for (size_t i = 0; i < khoiObj.size(); ++i) {
+        char c = khoiObj[i];
+        if (c == '"') {
+            size_t cuoiChuoi = timCuoiChuoiJson(khoiObj, i);
+            if (cuoiChuoi == string::npos) return false;
+
+            if (capNgoacNhon == 1 && capNgoacVuong == 0) {
+                string noiDungChuoi = khoiObj.substr(i + 1, cuoiChuoi - i - 1);
+                size_t sauChuoi = boQuaKhoangTrangVaCommentJson(khoiObj, cuoiChuoi + 1);
+                if (sauChuoi < khoiObj.size() && khoiObj[sauChuoi] == ':' && noiDungChuoi == tenKhoa) {
+                    viTriKhoaOut = i;
+                    viTriHaiChamOut = sauChuoi;
+                    return true;
+                }
+            }
+            i = cuoiChuoi;
+        } else if (c == '/' && i + 1 < khoiObj.size() && (khoiObj[i + 1] == '/' || khoiObj[i + 1] == '*')) {
+            i = boQuaKhoangTrangVaCommentJson(khoiObj, i) - 1;
+        } else if (c == '{') {
+            capNgoacNhon++;
+        } else if (c == '}') {
+            capNgoacNhon--;
+        } else if (c == '[') {
+            capNgoacVuong++;
+        } else if (c == ']') {
+            capNgoacVuong--;
+        }
+    }
+    return false;
+}
+
+// Cap nhat gia tri cua `tenKhoa` neu da co trong `khoiObj`, tra ve true neu da cap nhat
+static bool capNhatThuocTinhJsonNeuCo(string& khoiObj, const string& tenKhoa, const string& giaTriJsonMoi) {
+    size_t viTriKhoa = 0, viTriHaiCham = 0;
+    if (!timKhoaJsonCap1(khoiObj, tenKhoa, viTriKhoa, viTriHaiCham)) {
+        return false;
+    }
+
+    size_t dauGiaTri = boQuaKhoangTrangVaCommentJson(khoiObj, viTriHaiCham + 1);
+    if (dauGiaTri >= khoiObj.size()) return false;
+
+    size_t cuoiGiaTri = dauGiaTri;
+    if (khoiObj[dauGiaTri] == '"') {
+        size_t dongChuoi = timCuoiChuoiJson(khoiObj, dauGiaTri);
+        if (dongChuoi == string::npos) return false;
+        cuoiGiaTri = dongChuoi + 1;
+    } else if (khoiObj[dauGiaTri] == '{') {
+        size_t dongObj = timCapNgoacNhonJson(khoiObj, dauGiaTri);
+        if (dongObj == string::npos) return false;
+        cuoiGiaTri = dongObj + 1;
+    } else {
+        while (cuoiGiaTri < khoiObj.size() &&
+               khoiObj[cuoiGiaTri] != ',' &&
+               khoiObj[cuoiGiaTri] != '}' &&
+               khoiObj[cuoiGiaTri] != '\r' &&
+               khoiObj[cuoiGiaTri] != '\n' &&
+               khoiObj[cuoiGiaTri] != ' ' &&
+               khoiObj[cuoiGiaTri] != '\t') {
+            cuoiGiaTri++;
+        }
+    }
+
+    khoiObj.replace(dauGiaTri, cuoiGiaTri - dauGiaTri, giaTriJsonMoi);
+    return true;
+}
+
+void caiDatHinhNenWindowsTerminal() {
+#ifdef _WIN32
+    try {
+        // 1. Kiem tra su ton tai cua file background.jpg hoac background.png
+        fs::path duongDanAnh;
+        if (fs::exists("background.jpg")) {
+            duongDanAnh = fs::absolute("background.jpg");
+        } else if (fs::exists("background.png")) {
+            duongDanAnh = fs::absolute("background.png");
+        } else {
+            wchar_t bufExe[MAX_PATH] = { 0 };
+            if (GetModuleFileNameW(nullptr, bufExe, MAX_PATH) > 0) {
+                fs::path thuMucExe = fs::path(bufExe).parent_path();
+                if (fs::exists(thuMucExe / "background.jpg")) {
+                    duongDanAnh = fs::absolute(thuMucExe / "background.jpg");
+                } else if (fs::exists(thuMucExe / "background.png")) {
+                    duongDanAnh = fs::absolute(thuMucExe / "background.png");
+                }
+            }
+        }
+
+        if (duongDanAnh.empty()) return;
+
+        // Chuyen '\' thanh '/' de dung chuan chuoi JSON
+        string duongDanJson = duongDanAnh.string();
+        replace(duongDanJson.begin(), duongDanJson.end(), '\\', '/');
+
+        // Ban dung '\\' de doi chieu neu file settings.json dang luu kieu '\\'
+        string duongDanEscaped;
+        for (char c : duongDanJson) {
+            if (c == '/') duongDanEscaped += "\\\\";
+            else duongDanEscaped += c;
+        }
+
+        // 2. Tim duong dan settings.json cua Windows Terminal qua %LOCALAPPDATA%
+        const char* localAppData = std::getenv("LOCALAPPDATA");
+        if (localAppData == nullptr || localAppData[0] == '\0') return;
+
+        string thuMucLocal(localAppData);
+        vector<string> dsDuongDanSettings = {
+            thuMucLocal + "\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+            thuMucLocal + "\\Packages\\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\\LocalState\\settings.json"
+        };
+
+        for (const string& duongDanSettings : dsDuongDanSettings) {
+            if (!fs::exists(duongDanSettings)) continue;
+
+            ifstream fileDoc(duongDanSettings, ios::binary);
+            if (!fileDoc.is_open()) continue;
+            ostringstream buffer;
+            buffer << fileDoc.rdbuf();
+            string noiDung = buffer.str();
+            fileDoc.close();
+
+            size_t moRoot = boQuaKhoangTrangVaCommentJson(noiDung, 0);
+            if (moRoot >= noiDung.size() || noiDung[moRoot] != '{') continue;
+            size_t dongRoot = timCapNgoacNhonJson(noiDung, moRoot);
+            if (dongRoot == string::npos) continue;
+
+            string khoiRoot = noiDung.substr(moRoot, dongRoot - moRoot + 1);
+            size_t vtKhoaProfiles = 0, vtHaiChamProfiles = 0;
+            if (!timKhoaJsonCap1(khoiRoot, "profiles", vtKhoaProfiles, vtHaiChamProfiles)) continue;
+
+            size_t moProfiles = boQuaKhoangTrangVaCommentJson(noiDung, moRoot + vtHaiChamProfiles + 1);
+            if (moProfiles >= noiDung.size() || noiDung[moProfiles] != '{') continue;
+            size_t dongProfiles = timCapNgoacNhonJson(noiDung, moProfiles);
+            if (dongProfiles == string::npos) continue;
+
+            string khoiProfiles = noiDung.substr(moProfiles, dongProfiles - moProfiles + 1);
+            size_t vtKhoaDefaults = 0, vtHaiChamDefaults = 0;
+
+            if (timKhoaJsonCap1(khoiProfiles, "defaults", vtKhoaDefaults, vtHaiChamDefaults)) {
+                size_t moDefaults = boQuaKhoangTrangVaCommentJson(khoiProfiles, vtHaiChamDefaults + 1);
+                if (moDefaults >= khoiProfiles.size() || khoiProfiles[moDefaults] != '{') continue;
+                size_t dongDefaults = timCapNgoacNhonJson(khoiProfiles, moDefaults);
+                if (dongDefaults == string::npos) continue;
+
+                string khoiDefaults = khoiProfiles.substr(moDefaults, dongDefaults - moDefaults + 1);
+
+                // 3. Kiem tra neu "backgroundImage" trong "defaults" da trung voi duong dan hien tai
+                size_t vtKhoaBg = 0, vtHaiChamBg = 0;
+                if (timKhoaJsonCap1(khoiDefaults, "backgroundImage", vtKhoaBg, vtHaiChamBg)) {
+                    size_t dauGiaTriBg = boQuaKhoangTrangVaCommentJson(khoiDefaults, vtHaiChamBg + 1);
+                    if (dauGiaTriBg < khoiDefaults.size() && khoiDefaults[dauGiaTriBg] == '"') {
+                        size_t cuoiGiaTriBg = timCuoiChuoiJson(khoiDefaults, dauGiaTriBg);
+                        if (cuoiGiaTriBg != string::npos) {
+                            string giaTriBgHienTai = khoiDefaults.substr(dauGiaTriBg + 1, cuoiGiaTriBg - dauGiaTriBg - 1);
+                            if (giaTriBgHienTai == duongDanJson || giaTriBgHienTai == duongDanEscaped) {
+                                continue; // Da trung khop -> khong can ghi lai
+                            }
+                        }
+                    }
+                }
+
+                // Cap nhat hoac chen 3 thuoc tinh vao khoi "defaults"
+                vector<string> canChen;
+                if (!capNhatThuocTinhJsonNeuCo(khoiDefaults, "backgroundImage", "\"" + duongDanJson + "\"")) {
+                    canChen.push_back("\"backgroundImage\": \"" + duongDanJson + "\"");
+                }
+                if (!capNhatThuocTinhJsonNeuCo(khoiDefaults, "backgroundImageOpacity", "0.3")) {
+                    canChen.push_back("\"backgroundImageOpacity\": 0.3");
+                }
+                if (!capNhatThuocTinhJsonNeuCo(khoiDefaults, "backgroundImageStretchMode", "\"uniformToFill\"")) {
+                    canChen.push_back("\"backgroundImageStretchMode\": \"uniformToFill\"");
+                }
+
+                if (!canChen.empty()) {
+                    string chuoiChen;
+                    for (size_t k = 0; k < canChen.size(); ++k) {
+                        chuoiChen += "\n            " + canChen[k];
+                        if (k + 1 < canChen.size()) chuoiChen += ",";
+                    }
+
+                    // Kiem tra trong khoiDefaults da co thuoc tinh nao chua
+                    size_t viTriThuocTinhDau = boQuaKhoangTrangVaCommentJson(khoiDefaults, 1);
+                    if (viTriThuocTinhDau < khoiDefaults.size() && khoiDefaults[viTriThuocTinhDau] == '"') {
+                        // Da co thuoc tinh -> chen truoc thuoc tinh dau tien kem dau phay
+                        khoiDefaults.insert(viTriThuocTinhDau,
+                                            chuoiChen.substr(1) + ",\n            ");
+                    } else {
+                        // Khoi defaults dang rong (hoac chi co comment) -> chen truoc dau '}'
+                        chuoiChen += "\n        ";
+                        khoiDefaults.insert(khoiDefaults.size() - 1, chuoiChen);
+                    }
+                }
+
+                khoiProfiles.replace(moDefaults, dongDefaults - moDefaults + 1, khoiDefaults);
+                noiDung.replace(moProfiles, dongProfiles - moProfiles + 1, khoiProfiles);
+            } else {
+                // Neu trong "profiles" chua co muc "defaults" -> tao moi khoi "defaults"
+                string khoiDefaultsMoi =
+                    "\n        \"defaults\": {\n"
+                    "            \"backgroundImage\": \"" + duongDanJson + "\",\n"
+                    "            \"backgroundImageOpacity\": 0.3,\n"
+                    "            \"backgroundImageStretchMode\": \"uniformToFill\"\n"
+                    "        }";
+                size_t viTriDauProfiles = boQuaKhoangTrangVaCommentJson(khoiProfiles, 1);
+                if (viTriDauProfiles < khoiProfiles.size() && khoiProfiles[viTriDauProfiles] == '"') {
+                    khoiDefaultsMoi += ",";
+                }
+                khoiProfiles.insert(1, khoiDefaultsMoi);
+                noiDung.replace(moProfiles, dongProfiles - moProfiles + 1, khoiProfiles);
+            }
+
+            ofstream fileGhi(duongDanSettings, ios::binary | ios::trunc);
+            if (fileGhi.is_open()) {
+                fileGhi << noiDung;
+                fileGhi.close();
+            }
+        }
+    } catch (...) {
+        // Dam bao an toan tuyet doi: bat ky ngoai le nao cung duoc bo qua
+        // de chuong trinh chinh van tiep tuc chay binh thuong.
+    }
+#endif
+}
+
 void khoiTaoConsole() {
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
@@ -259,6 +543,8 @@ void khoiTaoConsole() {
     if (hOut != INVALID_HANDLE_VALUE && GetConsoleMode(hOut, &cheDo)) {
         g_hoTroANSI = SetConsoleMode(hOut, cheDo | ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0;
     }
+
+    caiDatHinhNenWindowsTerminal();
 #else
     g_hoTroANSI = true;
 #endif

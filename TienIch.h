@@ -77,9 +77,13 @@ double nhapSoThucKhongAm(const std::string& thongBao);
 // ------------------------------------------------------------
 
 // Goi 1 LAN DUY NHAT o dau main(): chuyen Console sang UTF-8 (in duoc
-// tieng Viet co dau) va bat che do ma ANSI (mau chu, di chuyen con tro)
-// tren Windows 10+. Linux/macOS mac dinh da ho tro ca hai.
+// tieng Viet co dau), bat che do ma ANSI va tu dong cai dat hinh nen
+// Windows Terminal neu co file background.jpg / background.png.
 void khoiTaoConsole();
+
+// Tu dong kiem tra file background.jpg (hoac background.png) trong thu
+// muc du an va cap nhat settings.json cua Windows Terminal.
+void caiDatHinhNenWindowsTerminal();
 
 // Dem so ky tu HIEN THI thuc te (so codepoint UTF-8) cua chuoi.
 int doRongHienThi(const std::string& s);
