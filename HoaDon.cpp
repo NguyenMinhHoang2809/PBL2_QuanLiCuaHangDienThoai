@@ -11,9 +11,9 @@ namespace fs = std::filesystem;
 HoaDon::HoaDon() : maHoaDon(""), maKhachHang(""), maNhanVien(""), ngayLap(""), tongTien(0), doanhThu(0) {}
 
 HoaDon::HoaDon(string maHoaDon, string maKhachHang, string maNhanVien, string ngayLap,
-               double tongTien, double doanhThu)
+               double tongTien, double doanhThu, const vector<string>& dsSanPham)
     : maHoaDon(maHoaDon), maKhachHang(maKhachHang), maNhanVien(maNhanVien),
-      ngayLap(ngayLap), tongTien(tongTien), doanhThu(doanhThu) {}
+      ngayLap(ngayLap), tongTien(tongTien), doanhThu(doanhThu), danhSachSanPham(dsSanPham) {}
 
 // ----- Getter -----
 string HoaDon::getMaHoaDon() const { return maHoaDon; }
@@ -30,6 +30,7 @@ void HoaDon::setMaNhanVien(string maNhanVien) { this->maNhanVien = maNhanVien; }
 void HoaDon::setNgayLap(string ngayLap) { this->ngayLap = ngayLap; }
 void HoaDon::setTongTien(double tongTien) { this->tongTien = tongTien; }
 void HoaDon::setDoanhThu(double doanhThu) { this->doanhThu = doanhThu; }
+void HoaDon::themSanPham(const string& moTaSanPham) { danhSachSanPham.push_back(moTaSanPham); }
 
 // ------------------------------------------------------------
 // luuFile(): tao thu muc DataHoaDon (neu chua co) va ghi thong tin
@@ -52,9 +53,15 @@ void HoaDon::luuFile() {
     file << "Ma Khach Hang: " << maKhachHang << "\n";
     file << "Ma Nhan Vien: " << maNhanVien << "\n";
     file << "Ngay Lap: " << ngayLap << "\n";
+    if (!danhSachSanPham.empty()) {
+        file << "So Luong: " << danhSachSanPham.size() << "\n";
+    }
     file << fixed << setprecision(0);
     file << "Tong Tien: " << tongTien << "\n";
     file << "Doanh Thu: " << doanhThu << "\n";
+    for (const string& sp : danhSachSanPham) {
+        file << "San Pham: " << sp << "\n";
+    }
     file.close();
 
     cout << "\n";

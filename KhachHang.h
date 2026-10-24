@@ -5,12 +5,12 @@
 
 // ============================================================
 // Lop KhachHang - ke thua Nguoi
-// Quyen han: Mua hang, Xem lich su mua hang (Stack LIFO)
+// Quyen han: Xem lich su mua hang (Stack LIFO)
 // ============================================================
 class KhachHang : public Nguoi {
 public:
     KhachHang();
-    KhachHang(std::string id, std::string mk);
+    KhachHang(std::string id, std::string mk, std::string hoTen = "");
     ~KhachHang() override;
 
     void hienThiMenu() override;

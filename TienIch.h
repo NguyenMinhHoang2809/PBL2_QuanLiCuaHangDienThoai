@@ -53,11 +53,20 @@ std::string dinhDangTien(double soTien);
 // Xoa sach man hinh Console (Windows: cls, Linux/macOS: clear).
 void clearScreen();
 
-// Dung lai va cho nguoi dung nhan Enter truoc khi tiep tuc - dung
-// SAU khi in ket qua mot chuc nang, TRUOC khi quay lai menu (menu se
-// goi clearScreen() ngay sau do) - dam bao nguoi dung KIP DOC ket qua
-// truoc khi man hinh bi xoa sach.
+// Ve nut "Quay lai" (cung kieu dang voi nut Menu) ben duoi ket qua cua
+// mot chuc nang va cho nguoi dung click chuot trai vao nut / nhan ESC
+// (hoac Enter) roi moi quay lai menu - dam bao nguoi dung KIP DOC ket
+// qua truoc khi man hinh bi xoa sach.
 void pauseScreen();
+
+// ------------------------------------------------------------
+// HUY THAO TAC: khi dang o bat ky o nhap lieu nao (nhapChuoiForm,
+// nhapSoNguyen, nhapSoThucKhongAm...), neu nguoi dung click chuot trai
+// vao nut "Quay lai" hoac nhan phim ESC, ham nhap se NEM ngoai le
+// HuyThaoTac (bo qua moi kiem tra rong / dinh dang). Menu cua tung vai
+// tro (hienThiMenu) bat ngoai le nay va hien lai menu ngay lap tuc.
+// ------------------------------------------------------------
+struct HuyThaoTac {};
 
 // ------------------------------------------------------------
 // Cac ham boc loi nhap lieu (input validation) - hien thi o nhap

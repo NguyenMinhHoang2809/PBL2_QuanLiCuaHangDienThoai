@@ -14,19 +14,24 @@ namespace fs = std::filesystem;
 // Neu he thong chua co tai khoan Quan Ly nao, bat buoc phai tao truoc
 void khoiTaoTaiKhoanQuanLyDauTien() {
     if (!fs::exists("DataQuanLi") || fs::is_empty("DataQuanLi")) {
-        TaoAccount("QL");
-        pauseScreen();
+        try {
+            TaoAccount("QL");
+            pauseScreen();
+        } catch (const HuyThaoTac&) {
+            // ESC / click "Quay lai": bo qua, vao thang menu chinh
+        }
     }
 }
 
 // ============================================================
 // FACTORY: dua vao vaiTro (tra ve tu DangNhap) de khoi tao dung
-// lop dan xuat tuong ung, tra ve thong qua con tro lop co so Nguoi*.
+// lop dan xuat tuong ung (kem Ho va ten doc tu file tai khoan),
+// tra ve thong qua con tro lop co so Nguoi*.
 // ============================================================
 Nguoi* taoNguoiDungTheoVaiTro(const string& vaiTro, const string& id) {
-    if (vaiTro == "QL") return new ChuCuaHang(id, "");
-    if (vaiTro == "NV") return new NhanVienBanHang(id, "");
-    if (vaiTro == "KH") return new KhachHang(id, "");
+    if (vaiTro == "QL") return new ChuCuaHang(id, "", layHoTenTaiKhoan("DataQuanLi", id));
+    if (vaiTro == "NV") return new NhanVienBanHang(id, "", layHoTenTaiKhoan("DataNhanVien", id));
+    if (vaiTro == "KH") return new KhachHang(id, "", layHoTenTaiKhoan("DataKhachHang", id));
     return nullptr;
 }
 
@@ -65,4 +70,3 @@ int main() {
     veTieuDeForm("HOÀNG CỬU BẢO MOBILE", "Cảm ơn quý khách đã sử dụng chương trình!", 56);
     return 0;
 }
-

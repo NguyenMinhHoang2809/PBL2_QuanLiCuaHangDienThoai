@@ -99,7 +99,7 @@ void XuatDanhSachKhoHang(bool hienGiaNhap) {
         "Quay lại"
     };
     int chiSo = chonMenu("SẮP XẾP DANH SÁCH KHO HÀNG THEO", cacMuc);
-    if (chiSo == static_cast<int>(cacMuc.size()) - 1) return;
+    if (chiSo == static_cast<int>(cacMuc.size()) - 1) throw HuyThaoTac(); // Quay lai menu
     int kieuSapXep = chiSo + 1;
 
     if (kieuSapXep == 4) {

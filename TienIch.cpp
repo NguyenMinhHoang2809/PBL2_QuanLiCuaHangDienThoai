@@ -677,6 +677,20 @@ void inTruongDaNhapForm(const string& nhan, const string& giaTri, int rongKhung,
          << ANSI_RESET_MAU << "\n";
 }
 
+#ifdef _WIN32
+// Khai bao truoc 2 ham Win32 (dinh nghia ben duoi, canh chonMenuConsole,
+// vi can dung chung NutConsole / veNutConsole voi Menu):
+//  - nhapChuoiFormWin32(): o nhap phang + nut "Quay lai" ben duoi, doc
+//    phim/chuot bang ReadConsoleInput. Tra ve false neu khong co Console
+//    that (de dung cach nhap getline du phong). Nem HuyThaoTac khi nguoi
+//    dung nhan ESC hoac click vao nut "Quay lai".
+//  - choNutQuayLaiWin32(): ve nut "Quay lai" va cho click / ESC / Enter.
+static bool nhapChuoiFormWin32(const string& nhanCat, int demNhan, int rongCotNhan, int rongO,
+                               int tongRong, const string& thongBaoLoi, bool choPhepRong,
+                               string& ketQuaRa);
+static bool choNutQuayLaiWin32();
+#endif
+
 void xoaDongTruocForm(int soDong) {
     if (soDong <= 0) return;
     for (int i = 0; i < soDong; ++i) {
@@ -696,6 +710,17 @@ string nhapChuoiForm(const string& nhan,
     int rongCotNhan = rongNhan + 4; // "  " + nhan + ": "
     int rongO = max(10, rongKhung - rongCotNhan);
     int tongRong = rongCotNhan + rongO;
+
+#ifdef _WIN32
+    {
+        // Uu tien o nhap Win32 (ho tro nut "Quay lai" + phim ESC)
+        string ketQuaWin32;
+        if (nhapChuoiFormWin32(nhanCat, demNhan, rongCotNhan, rongO, tongRong,
+                               thongBaoLoi, choPhepRong, ketQuaWin32)) {
+            return ketQuaWin32;
+        }
+    }
+#endif
 
     string loiHienTai = thongBaoLoi;
 
@@ -761,9 +786,14 @@ std::string nhapDongKemThongBaoLoi(const std::string& nhanDe, const std::string&
 }
 
 // ------------------------------------------------------------
-// pauseScreen(): in dong huong dan can giua man hinh va cho Enter.
+// pauseScreen(): ve nut "Quay lai" ben duoi ket qua va cho nguoi dung
+// click chuot / nhan ESC / Enter. Du phong (khong co Console that):
+// in dong huong dan va cho Enter nhu cu.
 // ------------------------------------------------------------
 void pauseScreen() {
+#ifdef _WIN32
+    if (choNutQuayLaiWin32()) return;
+#endif
     cout << "\n";
     string thongBao = "Nhấn Enter để tiếp tục...";
     int leTrai = tinhLeTraiCanGiua(doRongHienThi(thongBao));
@@ -906,6 +936,292 @@ static void veKhoiPhang(HANDLE hOut, int x, int y, int rong, const string& nhan,
 
 static void veNutConsole(HANDLE hOut, const NutConsole& nut, const string& nhan, bool sang) {
     veKhoiPhang(hOut, nut.x, nut.y, nut.rong, nhan, sang ? ANSI_NUT_SANG : ANSI_NUT_THUONG);
+}
+
+// ============================================================
+// NUT "QUAY LAI" + O NHAP LIEU DOC BANG ReadConsoleInput
+// ============================================================
+
+static const char* const NHAN_NUT_QUAY_LAI = "Quay lại";
+static const int RONG_NUT_QUAY_LAI = 28; // Cung kich thuoc voi nut Menu
+
+static string wstringSangUtf8(const wstring& w) {
+    if (w.empty()) return "";
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    if (n <= 0) return "";
+    string s(n, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), &s[0], n, nullptr, nullptr);
+    return s;
+}
+
+static string catKhoangTrangHaiDau(const string& s) {
+    size_t dau = s.find_first_not_of(" \t\r\n");
+    if (dau == string::npos) return "";
+    size_t cuoi = s.find_last_not_of(" \t\r\n");
+    return s.substr(dau, cuoi - dau + 1);
+}
+
+// Xoa trang 1 dong (toa do buffer y) bang API, KHONG di chuyen con tro.
+static void xoaDongWin32(HANDLE hOut, int y, WORD mau) {
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (!GetConsoleScreenBufferInfo(hOut, &csbi)) return;
+    if (y < 0 || y >= csbi.dwSize.Y) return;
+    COORD goc = { 0, static_cast<SHORT>(y) };
+    DWORD daGhi = 0;
+    FillConsoleOutputCharacterW(hOut, L' ', csbi.dwSize.X, goc, &daGhi);
+    FillConsoleOutputAttribute(hOut, mau, csbi.dwSize.X, goc, &daGhi);
+}
+
+// Bao dam co `soDong` dong trong ben duoi con tro (Console tu cuon len
+// neu dang o cuoi man hinh), roi dua con tro ve dau dong ban dau.
+// Tra ve toa do y (buffer) cua dong ban dau.
+static int datChoTrongBenDuoi(HANDLE hOut, int soDong) {
+    cout << "\r" << string(soDong, '\n') << flush;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(hOut, &csbi);
+    int y = max(0, static_cast<int>(csbi.dwCursorPosition.Y) - soDong);
+    COORD viTri = { 0, static_cast<SHORT>(y) };
+    SetConsoleCursorPosition(hOut, viTri);
+    return y;
+}
+
+// Nut "Quay lai" can giua man hinh tai dong y
+static NutConsole taoNutQuayLai(HANDLE hOut, int y) {
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(hOut, &csbi);
+    NutConsole nut;
+    nut.rong = RONG_NUT_QUAY_LAI;
+    nut.x = csbi.srWindow.Left + tinhLeTraiCanGiua(nut.rong);
+    nut.y = y;
+    return nut;
+}
+
+static bool chuotTrungNut(const NutConsole& nut, COORD p) {
+    return p.X >= nut.x && p.X < nut.x + nut.rong && p.Y >= nut.y && p.Y < nut.y + CAO_NUT;
+}
+
+// ------------------------------------------------------------
+// nhapChuoiFormWin32(): bo cuc tren man hinh (toa do buffer):
+//   y     : [  Nhan        : ][ o nhap ...          ]
+//   y + 1 :        (!) thong bao loi (neu co)
+//   y + 2 :
+//   y + 3 :            [      Quay lại      ]   <- nut 3 dong
+// Tu doc tung phim (ReadConsoleInputW) de vua go chu vua bat duoc su
+// kien chuot tren nut "Quay lai":
+//   - Enter : xac nhan (neu rong ma khong cho phep -> bao loi, nhap tiep)
+//   - ESC / click trai vao nut "Quay lai" : nem HuyThaoTac NGAY LAP TUC
+//     (bo qua moi kiem tra "khong de trong").
+// Ket thuc: xoa dong loi + nut, dua con tro ve dau dong y + 1 de noi
+// dung tiep theo in sat ngay ben duoi o nhap (giong getline truoc day).
+// ------------------------------------------------------------
+static bool nhapChuoiFormWin32(const string& nhanCat, int demNhan, int rongCotNhan, int rongO,
+                               int tongRong, const string& thongBaoLoi, bool choPhepRong,
+                               string& ketQuaRa) {
+    if (!g_hoTroANSI) return false;
+
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD cheDoInGoc = 0;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    CONSOLE_CURSOR_INFO conTroGoc;
+    if (!GetConsoleMode(hIn, &cheDoInGoc) || !GetConsoleScreenBufferInfo(hOut, &csbi)
+        || !GetConsoleCursorInfo(hOut, &conTroGoc)) {
+        return false; // Khong phai Console that -> dung getline du phong
+    }
+    const WORD mauGoc = csbi.wAttributes;
+    const int trai = csbi.srWindow.Left;
+
+    const int y = datChoTrongBenDuoi(hOut, 6);
+    const int leTrai = trai + tinhLeTraiCanGiua(tongRong);
+    const int xO = leTrai + rongCotNhan;
+    const int toiDaHienThi = max(1, rongO - 2);
+
+    // Nhan (label) ben trai
+    inTaiViTri(hOut, leTrai, y,
+               string(ANSI_NHAN_FORM) + "  " + nhanCat + string(demNhan, ' ') + ": " + ANSI_RESET_MAU);
+
+    // Nut "Quay lai" ben duoi o nhap
+    NutConsole nut = taoNutQuayLai(hOut, y + 3);
+    bool nutSang = false;
+    veNutConsole(hOut, nut, NHAN_NUT_QUAY_LAI, false);
+
+    wstring giaTri;
+    string loi = thongBaoLoi;
+
+    auto datConTro = [&]() {
+        int doDai = min(static_cast<int>(giaTri.size()), toiDaHienThi);
+        COORD viTri = { static_cast<SHORT>(xO + 1 + doDai), static_cast<SHORT>(y) };
+        SetConsoleCursorPosition(hOut, viTri);
+    };
+
+    // Ve lai o nhap: neu chuoi dai hon o, chi hien phan CUOI (cuon ngang)
+    auto veO = [&]() {
+        wstring hienThi = giaTri;
+        if (hienThi.size() > static_cast<size_t>(toiDaHienThi)) {
+            hienThi = hienThi.substr(hienThi.size() - toiDaHienThi);
+        }
+        int dem = max(0, rongO - 1 - static_cast<int>(hienThi.size()));
+        inTaiViTri(hOut, xO, y,
+                   string(ANSI_O_NHAP_FORM) + " " + wstringSangUtf8(hienThi) + string(dem, ' ') + ANSI_RESET_MAU);
+        datConTro();
+    };
+
+    auto veLoi = [&]() {
+        xoaDongWin32(hOut, y + 1, mauGoc);
+        if (!loi.empty()) {
+            string chuoiLoi = "(!) " + loi;
+            inTaiViTri(hOut, trai + tinhLeTraiCanGiua(doRongHienThi(chuoiLoi)), y + 1,
+                       string(ANSI_MAU_DO) + chuoiLoi + ANSI_RESET_MAU);
+        }
+        datConTro();
+    };
+
+    // Khoi phuc Console + don dong loi va nut "Quay lai"
+    auto ketThuc = [&](bool huy) {
+        SetConsoleMode(hIn, cheDoInGoc);
+        SetConsoleCursorInfo(hOut, &conTroGoc);
+        for (int r = y + 1; r <= y + 5; ++r) xoaDongWin32(hOut, r, mauGoc);
+        COORD viTri = { 0, static_cast<SHORT>(y + 1) };
+        SetConsoleCursorPosition(hOut, viTri);
+        if (huy) FlushConsoleInputBuffer(hIn);
+    };
+
+    // Tat Quick Edit (de nhan su kien chuot), tat Line/Echo input (tu ve chu)
+    SetConsoleMode(hIn, ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT);
+    CONSOLE_CURSOR_INFO hienConTro = conTroGoc;
+    hienConTro.bVisible = TRUE;
+    SetConsoleCursorInfo(hOut, &hienConTro);
+
+    veLoi();
+    veO();
+
+    while (true) {
+        INPUT_RECORD suKien;
+        DWORD soDoc = 0;
+        if (!ReadConsoleInputW(hIn, &suKien, 1, &soDoc) || soDoc == 0) {
+            ketThuc(false);
+            ketQuaRa = catKhoangTrangHaiDau(wstringSangUtf8(giaTri));
+            return true;
+        }
+
+        if (suKien.EventType == KEY_EVENT) {
+            const KEY_EVENT_RECORD& phim = suKien.Event.KeyEvent;
+            if (!phim.bKeyDown) continue;
+
+            const WORD vk = phim.wVirtualKeyCode;
+            const wchar_t kyTu = phim.uChar.UnicodeChar;
+            const int soLan = (phim.wRepeatCount > 0) ? phim.wRepeatCount : 1;
+
+            if (vk == VK_ESCAPE) {
+                ketThuc(true);
+                throw HuyThaoTac();
+            }
+
+            if (vk == VK_RETURN) {
+                string ketQua = catKhoangTrangHaiDau(wstringSangUtf8(giaTri));
+                if (ketQua.empty() && !choPhepRong) {
+                    loi = "Vui lòng không để trống trường này!";
+                    veLoi();
+                    continue;
+                }
+                ketThuc(false);
+                ketQuaRa = ketQua;
+                return true;
+            }
+
+            if (vk == VK_BACK) {
+                for (int i = 0; i < soLan && !giaTri.empty(); ++i) {
+                    giaTri.pop_back();
+                    // Xoa not nua dau cua cap surrogate (ky tu ngoai BMP)
+                    if (!giaTri.empty() && giaTri.back() >= 0xD800 && giaTri.back() <= 0xDBFF) {
+                        giaTri.pop_back();
+                    }
+                }
+                veO();
+                continue;
+            }
+
+            // Ky tu in duoc (ke ca tieng Viet go bang Unikey / dan bang Ctrl+V)
+            if (kyTu >= 32 && kyTu != 127) {
+                for (int i = 0; i < soLan; ++i) giaTri += kyTu;
+                veO();
+            }
+        } else if (suKien.EventType == MOUSE_EVENT) {
+            const MOUSE_EVENT_RECORD& chuot = suKien.Event.MouseEvent;
+            bool trung = chuotTrungNut(nut, chuot.dwMousePosition);
+
+            // Re chuot vao / ra khoi nut -> doi mau nut (chi ve lai dung nut nay)
+            if ((chuot.dwEventFlags == MOUSE_MOVED || chuot.dwEventFlags == 0) && trung != nutSang) {
+                nutSang = trung;
+                veNutConsole(hOut, nut, NHAN_NUT_QUAY_LAI, nutSang);
+                datConTro();
+            }
+
+            // Click chuot trai vao nut "Quay lai" -> huy ngay
+            if (chuot.dwEventFlags == 0 && (chuot.dwButtonState & FROM_LEFT_1ST_BUTTON_PRESSED) && trung) {
+                ketThuc(true);
+                throw HuyThaoTac();
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------
+// choNutQuayLaiWin32(): ve nut "Quay lai" ngay ben duoi noi dung hien
+// tai va cho nguoi dung click chuot trai vao nut / nhan ESC / Enter.
+// ------------------------------------------------------------
+static bool choNutQuayLaiWin32() {
+    if (!g_hoTroANSI) return false;
+
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD cheDoInGoc = 0;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    CONSOLE_CURSOR_INFO conTroGoc;
+    if (!GetConsoleMode(hIn, &cheDoInGoc) || !GetConsoleScreenBufferInfo(hOut, &csbi)
+        || !GetConsoleCursorInfo(hOut, &conTroGoc)) {
+        return false;
+    }
+
+    cout << "\n" << flush; // 1 dong trong ngan cach voi noi dung phia tren
+    const int y = datChoTrongBenDuoi(hOut, 4);
+    NutConsole nut = taoNutQuayLai(hOut, y);
+
+    SetConsoleMode(hIn, ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT);
+    CONSOLE_CURSOR_INFO anConTro = conTroGoc;
+    anConTro.bVisible = FALSE;
+    SetConsoleCursorInfo(hOut, &anConTro);
+
+    bool nutSang = false;
+    veNutConsole(hOut, nut, NHAN_NUT_QUAY_LAI, false);
+
+    while (true) {
+        INPUT_RECORD suKien;
+        DWORD soDoc = 0;
+        if (!ReadConsoleInputW(hIn, &suKien, 1, &soDoc) || soDoc == 0) break;
+
+        if (suKien.EventType == KEY_EVENT && suKien.Event.KeyEvent.bKeyDown) {
+            WORD vk = suKien.Event.KeyEvent.wVirtualKeyCode;
+            if (vk == VK_ESCAPE || vk == VK_RETURN) break;
+        } else if (suKien.EventType == MOUSE_EVENT) {
+            const MOUSE_EVENT_RECORD& chuot = suKien.Event.MouseEvent;
+            bool trung = chuotTrungNut(nut, chuot.dwMousePosition);
+            if ((chuot.dwEventFlags == MOUSE_MOVED || chuot.dwEventFlags == 0) && trung != nutSang) {
+                nutSang = trung;
+                veNutConsole(hOut, nut, NHAN_NUT_QUAY_LAI, nutSang);
+            }
+            if (chuot.dwEventFlags == 0 && (chuot.dwButtonState & FROM_LEFT_1ST_BUTTON_PRESSED) && trung) {
+                break;
+            }
+        }
+    }
+
+    SetConsoleMode(hIn, cheDoInGoc);
+    SetConsoleCursorInfo(hOut, &conTroGoc);
+    FlushConsoleInputBuffer(hIn);
+    COORD viTri = { 0, static_cast<SHORT>(y + CAO_NUT) };
+    SetConsoleCursorPosition(hOut, viTri);
+    return true;
 }
 
 int chonMenuConsole(const string& tieuDe, const vector<string>& cacMuc) {

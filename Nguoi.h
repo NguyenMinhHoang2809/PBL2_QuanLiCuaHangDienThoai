@@ -12,10 +12,11 @@ class Nguoi {
 protected:
     std::string ID;
     std::string matKhau;
+    std::string hoTen;
 
 public:
     Nguoi();
-    Nguoi(const std::string& id, const std::string& mk);
+    Nguoi(const std::string& id, const std::string& mk, const std::string& ten = "");
 
     // Destructor ao - BAT BUOC de giai phong dung lop dan xuat khi
     // xoa doi tuong thong qua con tro lop co so (Nguoi*)
@@ -24,8 +25,10 @@ public:
     // ----- Getter / Setter -----
     std::string getID() const;
     std::string getMatKhau() const;
+    std::string getHoTen() const;
     void setID(const std::string& id);
     void setMatKhau(const std::string& mk);
+    void setHoTen(const std::string& ten);
 
     // ----- Ham thuan ao (Pure Virtual Function) -----
     // Moi lop con BAT BUOC phai hien thuc lai theo dac thu vai tro cua minh

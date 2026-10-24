@@ -2,6 +2,7 @@
 #define HOADON_H
 
 #include <string>
+#include <vector>
 
 // ============================================================
 // Lop HoaDon - dai dien cho mot hoa don ban hang.
@@ -15,11 +16,13 @@ private:
     std::string ngayLap;
     double tongTien;
     double doanhThu; // = tong (Gia Ban - Gia Nhap) cua tung san pham trong hoa don
+    std::vector<std::string> danhSachSanPham;
 
 public:
     HoaDon();
     HoaDon(std::string maHoaDon, std::string maKhachHang, std::string maNhanVien,
-           std::string ngayLap, double tongTien, double doanhThu);
+           std::string ngayLap, double tongTien, double doanhThu,
+           const std::vector<std::string>& dsSanPham = {});
     // ----- Getter -----
     std::string getMaHoaDon() const;
     std::string getMaKhachHang() const;
@@ -34,6 +37,7 @@ public:
     void setNgayLap(std::string ngayLap);
     void setTongTien(double tongTien);
     void setDoanhThu(double doanhThu);
+    void themSanPham(const std::string& moTaSanPham);
     // Tao thu muc DataHoaDon (neu chua co) va xuat thong tin hoa don
     // ra file: DataHoaDon/HD_[maHoaDon].txt
     void luuFile();

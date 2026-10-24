@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 
 ChuCuaHang::ChuCuaHang() : Nguoi() {}
 
-ChuCuaHang::ChuCuaHang(string id, string mk) : Nguoi(id, mk) {}
+ChuCuaHang::ChuCuaHang(string id, string mk, string hoTen) : Nguoi(id, mk, hoTen) {}
 
 ChuCuaHang::~ChuCuaHang() {}
 
@@ -113,6 +113,31 @@ static int nhapSoTrongKhoang(const string& thongBao, int nhoNhat, int lonNhat) {
 }
 
 // ------------------------------------------------------------
+// Chuc nang: Tim kiem thong tin Nhan Vien theo ID
+// ------------------------------------------------------------
+static void TimKiemThongTinNhanVien() {
+    clearScreen();
+    veTieuDeForm("TÌM KIẾM THÔNG TIN NHÂN VIÊN",
+                 "(Nhập ID Nhân viên cần tra cứu, ví dụ: NV_01)",
+                 58);
+
+    string maNhanVien = nhapChuoiForm("ID Nhân viên", "", false, 58, 20);
+
+    string matKhau, hoTen;
+    if (!docThongTinTaiKhoan("DataNhanVien", maNhanVien, matKhau, hoTen)) {
+        cout << "\n";
+        inThongBaoForm("Không tìm thấy nhân viên với ID này!", LOAI_LOI);
+        return;
+    }
+
+    cout << "\n";
+    inDongTrongKhungForm("THÔNG TIN NHÂN VIÊN", 58, "\033[48;5;236m\033[93;1m");
+    inTruongDaNhapForm("ID Nhân viên", maNhanVien, 58, 20);
+    inTruongDaNhapForm("Họ và tên",    hoTen,      58, 20);
+    inTruongDaNhapForm("Trạng thái",   (matKhau == MAT_KHAU_DA_XOA) ? "Đã bị vô hiệu hóa" : "Đang hoạt động", 58, 20);
+}
+
+// ------------------------------------------------------------
 // Chuc nang: Xem doanh thu / danh sach hoa don cua 1 Nhan Vien cu the
 // ------------------------------------------------------------
 static void XemDoanhThuNhanVien() {
@@ -141,11 +166,14 @@ static void XemDoanhThuNhanVien() {
         "Quay lại"
     };
     int chiSoLoc = chonMenu("LỌC BÁO CÁO CỦA " + maNhanVien + " THEO", cacMucLoc);
-    if (chiSoLoc == static_cast<int>(cacMucLoc.size()) - 1) return;
+    if (chiSoLoc == static_cast<int>(cacMucLoc.size()) - 1) throw HuyThaoTac(); // Quay lai menu
     int locTheo = chiSoLoc + 1;
 
     clearScreen();
-    veTieuDeForm("HÓA ĐƠN CỦA NHÂN VIÊN " + maNhanVien, "", 78);
+    string hoTenNV = layHoTenTaiKhoan("DataNhanVien", maNhanVien);
+    veTieuDeForm("HÓA ĐƠN CỦA NHÂN VIÊN " + maNhanVien,
+                 "Họ và tên: " + hoTenNV,
+                 78);
 
     int ngayLoc = 0, thangLoc = 0, namLoc = 0;
     if (locTheo == 1) {
@@ -316,11 +344,14 @@ static void XemDoanhThuTatCaNhanVien(bool theoNgay) {
 
 // ------------------------------------------------------------
 // Chuc nang: "Xoa" (vo hieu hoa) tai khoan Nhan Vien
+// Ghi de mat khau thanh hang so MAT_KHAU_DA_XOA ("__DELETED_ACCOUNT__")
+// de khoa dang nhap nhung van giu file va lich su hoa don, dong thoi
+// cho phep TaoAccount() nhan biet de tao lai (khoi phuc) ve sau.
 // ------------------------------------------------------------
 static void XoaTaiKhoanNhanVien() {
     clearScreen();
     veTieuDeForm("VÔ HIỆU HÓA TÀI KHOẢN NHÂN VIÊN",
-                 "(Đặt lại mật khẩu về mặc định để khóa quyền đăng nhập)",
+                 "(Khóa quyền đăng nhập của nhân viên nhưng vẫn giữ lịch sử hóa đơn)",
                  58);
 
     string maNhanVien;
@@ -335,15 +366,21 @@ static void XoaTaiKhoanNhanVien() {
         break;
     }
 
+    string matKhauCu, hoTenCu;
+    docThongTinTaiKhoan("DataNhanVien", maNhanVien, matKhauCu, hoTenCu);
+
     string tenFile = "DataNhanVien/" + maNhanVien + ".txt";
-    ofstream file(tenFile);
+    ofstream file(tenFile, ios::trunc);
     if (!file.is_open()) {
         cout << "\n";
         inThongBaoForm("Không thể cập nhật tài khoản này!", LOAI_LOI);
         return;
     }
 
-    file << maNhanVien << "\n31415\n";
+    file << maNhanVien << "\n" << MAT_KHAU_DA_XOA << "\n";
+    if (!hoTenCu.empty() && hoTenCu != "(Chưa cập nhật)") {
+        file << hoTenCu << "\n";
+    }
     file.close();
 
     cout << "\n";
@@ -358,6 +395,7 @@ void ChuCuaHang::hienThiMenu() {
             "Nhập hàng LOẠT từ file",
             "Xuất danh sách kho hàng",
             "Tạo tài khoản Nhân viên",
+            "Tìm kiếm thông tin Nhân viên",
             "Xem doanh thu / hóa đơn theo Nhân viên",
             "Xem doanh thu TẤT CẢ Nhân viên theo Ngày",
             "Xem doanh thu TẤT CẢ Nhân viên theo Tháng",
@@ -367,43 +405,53 @@ void ChuCuaHang::hienThiMenu() {
         int chiSo = chonMenu("MENU CHỦ CỬA HÀNG (" + getID() + ")", cacMuc);
         luaChon = (chiSo == static_cast<int>(cacMuc.size()) - 1) ? 0 : chiSo + 1;
 
-        switch (luaChon) {
-            case 1:
-                TaoMatHang();
-                pauseScreen();
-                break;
-            case 2:
-                NhapHangLoatTuFile();
-                pauseScreen();
-                break;
-            case 3:
-                XuatDanhSachKhoHang(true);
-                pauseScreen();
-                break;
-            case 4:
-                TaoAccount("QL");
-                pauseScreen();
-                break;
-            case 5:
-                XemDoanhThuNhanVien();
-                pauseScreen();
-                break;
-            case 6:
-                XemDoanhThuTatCaNhanVien(true);
-                pauseScreen();
-                break;
-            case 7:
-                XemDoanhThuTatCaNhanVien(false);
-                pauseScreen();
-                break;
-            case 8:
-                XoaTaiKhoanNhanVien();
-                pauseScreen();
-                break;
-            case 0:
-                break;
-            default:
-                break;
+        // ESC / click nut "Quay lai" o bat ky man hinh chuc nang nao se nem
+        // HuyThaoTac -> bat lai o day va hien lai menu Chu cua hang.
+        try {
+            switch (luaChon) {
+                case 1:
+                    TaoMatHang();
+                    pauseScreen();
+                    break;
+                case 2:
+                    NhapHangLoatTuFile();
+                    pauseScreen();
+                    break;
+                case 3:
+                    XuatDanhSachKhoHang(true);
+                    pauseScreen();
+                    break;
+                case 4:
+                    TaoAccount("QL");
+                    pauseScreen();
+                    break;
+                case 5:
+                    TimKiemThongTinNhanVien();
+                    pauseScreen();
+                    break;
+                case 6:
+                    XemDoanhThuNhanVien();
+                    pauseScreen();
+                    break;
+                case 7:
+                    XemDoanhThuTatCaNhanVien(true);
+                    pauseScreen();
+                    break;
+                case 8:
+                    XemDoanhThuTatCaNhanVien(false);
+                    pauseScreen();
+                    break;
+                case 9:
+                    XoaTaiKhoanNhanVien();
+                    pauseScreen();
+                    break;
+                case 0:
+                    break;
+                default:
+                    break;
+            }
+        } catch (const HuyThaoTac&) {
+            // Huy thao tac -> quay lai menu
         }
     } while (luaChon != 0);
 }
