@@ -2,20 +2,16 @@
 #define DIENTHOAI_H
 
 #include "MatHang.h"
-// Lop DienThoai - ke thua MatHang, bo sung thuoc tinh cauHinh
-class DienThoai : public MatHang {
-private:
-    std::string cauHinh;
 
+// ============================================================
+// Lop DienThoai - ke thua MatHang (dung toan bo thuoc tinh cua lop cha:
+// maSP, tenSP, giaNhap, giaBan) va ghi de ham ao hienThiThongTin().
+// ============================================================
+class DienThoai : public MatHang {
 public:
     DienThoai();
-    DienThoai(std::string maSP, std::string tenSP, double giaNhap, double giaBan,
-               std::string cauHinh);
+    DienThoai(std::string maSP, std::string tenSP, double giaNhap, double giaBan);
     ~DienThoai() override;
-
-    // ----- Getter / Setter rieng cua DienThoai -----
-    std::string getCauHinh() const;
-    void setCauHinh(std::string cauHinh);
 
     // Ghi de ham ao cua lop co so MatHang
     void hienThiThongTin() override;

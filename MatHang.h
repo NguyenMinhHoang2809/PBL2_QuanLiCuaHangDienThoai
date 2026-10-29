@@ -33,7 +33,7 @@ public:
     void setGiaBan(double giaBan);
 
     // Ham ao - cac lop con co the (nhung khong bat buoc) ghi de lai
-    // de bo sung thong tin rieng (cau hinh...)
+    // de bo sung thong tin rieng (vd: loai san pham)
     virtual void hienThiThongTin();
 };
 
